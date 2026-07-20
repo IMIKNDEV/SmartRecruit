@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-SmartRecruit is a gamified recruitment platform with intelligent candidate-job matching. Built as a final project for the DWWM/Backend training (Laravel, PHP, MySQL, REST API) by Ayoub Idbelhaj.
+SmartRecruit is a recruitment platform with intelligent candidate-job matching. Built as a final project for the DWWM/Backend training (Laravel, PHP, MySQL, REST API) by Ayoub Idbelhaj.
+
+The platform is **recruiter-centric**: it digitalizes and secures the entire recruitment process — from publishing an offer to the final decision — by giving recruiters a visual Kanban pipeline, an analytical dashboard, productivity tools (batch actions, saved filters, candidate comparison), and an automatic candidate/offer compatibility score. The compatibility score is computed at CV upload by an AI-powered matching engine built on the `laravel/ai` SDK (Groq driver), which returns the score together with the found and missing keywords for full transparency.
 
 **Jira Project Key:** SR (SmartRecruit)
 **Jira URL:** https://gamecafemanager.atlassian.net/browse/SR
@@ -21,8 +23,8 @@ SmartRecruit is a gamified recruitment platform with intelligent candidate-job m
 | Frontend | Blade + Vite | Vite 8 |
 | CSS | Tailwind CSS | 4.x |
 | Auth | Laravel Sanctum | Bearer token API |
+| AI | laravel/ai SDK (Groq driver) | candidate/offer matching score + interview question generation |
 | Testing | PHPUnit / Pest | PHPUnit 12.5+ |
-| AI | laravel/ai SDK | keyword matching |
 | CI/CD | GitHub Actions | workflow.yml |
 | Container | Docker + docker-compose | PHP 8.3 |
 | Queue | Database driver | async jobs |
@@ -41,14 +43,36 @@ The project is a **fresh Laravel 13 scaffold**. Only default files exist. Everyt
 
 ## Business Context
 
-An enterprise in Agadir manages recruitment via emails and Excel. SmartRecruit centralizes this: recruiters publish offers, receive applications, follow a Kanban pipeline, and get an automatic matching score.
+A recruitment company based in Agadir currently manages its entire hiring process through email exchanges and shared Excel files. This artisanal process generates recurring friction, especially for recruiters who pilot the process daily:
 
-### User Roles
+- Considerable time lost manually sorting CVs received by email and assessing their fit with the position;
+- No overall view of the progress of each application (no centralized pipeline tracking);
+- No performance indicators on the recruitment process itself (processing time, conversion rate, application quality);
+- Risk of errors and duplicates in the Excel follow-up (lost application, status not updated, forgotten follow-up);
+- No traceability of exchanges (internal notes, candidate feedback) nor of interview evaluations;
+- No tool to objectify the relevance of an application against the required skills, nor to quickly compare several profiles.
+
+**Problématique:** How to centralize and automate the recruitment process — from publishing an offer to the final decision — while giving recruiters real piloting and objective-decision tools, without depending on paid external tools or APIs?
+
+SmartRecruit answers this by offering a web platform designed first and foremost for the recruiter: a visual Kanban pipeline, an analytical dashboard on recruitment performance, productivity tools (batch actions, saved filters, candidate comparison), and a candidate/offer compatibility score calculated automatically at CV upload by an AI-powered matching engine built on the `laravel/ai` SDK (Groq driver).
+
+---
+
+## Project Objectives
+
+- **Objectif métier** — Digitalize and secure the company's recruitment process, from offer publication to final decision, giving the recruiter a clear vision and piloting tools for their activity.
+- **Objectif fonctionnel** — Provide a follow-up pipeline (Kanban), an analytical dashboard (funnel, processing time, score distribution), recruiter productivity tools (batch actions, saved filters, candidate comparison), an automatic and transparent matching score, a scored interview module, and quick quality signals (tags, alerts) to accelerate decision-making.
+- **Objectif pédagogique** — Demonstrate mastery of a professional Laravel architecture (Policies, Form Requests, Resources, Services, Jobs, Observers, automated tests) within the DWWM/Backend end-of-training project.
+- **Objectif technique** — Deliver a REST API secured by token (Sanctum), tested, containerized (Docker), and integrated into a CI/CD chain (GitHub Actions).
+
+---
+
+## User Roles
 
 | Role | Description | Permissions |
 |---|---|---|
-| `recruiter` | Manages job offers, reviews applications, schedules interviews, sets pipeline status | CRUD on own jobs, manage applications on own jobs, schedule interviews, add notes/comments, view dashboard stats |
-| `candidate` | Applies to jobs, uploads CV, views own applications and profile | Apply to jobs, view own applications, view own profile with badges |
+| `recruiter` | Manages job offers, follows applications, pilots recruitment performance | CRUD on own jobs, manage applications on own jobs, **batch actions**, **saved filters**, **candidate comparison**, schedule and score interviews, internal notes, analytical dashboard. |
+| `candidate` | Applies to offers and follows their applications | Apply (CV + cover letter), consult their applications **and their score**, consult their profile. |
 
 **Important:** One user = one role. A user cannot be both recruiter and candidate. Role is set at registration and cannot be changed.
 
@@ -74,20 +98,34 @@ An enterprise in Agadir manages recruitment via emails and Excel. SmartRecruit c
 | US-JOB-03 | As a recruiter, I can soft-delete (archive) my job offer | Uses soft deletes. Only owner can delete. Returns 204. |
 | US-JOB-04 | As anyone, I can list active job offers | Paginated. Filterable by contract_type, tech_stack search. Returns 200. |
 | US-JOB-05 | As anyone, I can view a single job offer | Returns 200 with job data. 404 if not found or archived. |
-| US-JOB-06 | As a recruiter, I can see my dashboard | Active offers count, total applications, recent applications. Returns 200. |
+| US-JOB-06 | As a recruiter, I can see my analytical dashboard | Conversion funnel, time-to-hire, score distribution, recent activity, cross-offer comparison, pending-task digest. Returns 200. |
 
 ### Applications (US-APP)
 
 | ID | Story | Acceptance Criteria |
 |---|---|---|
-| US-APP-01 | As a candidate, I can apply to a job | Upload CV (PDF, max 5MB), cover letter text. Matching score auto-calculated. Status defaults to `received`. Returns 201. |
+| US-APP-01 | As a candidate, I can apply to a job | Upload CV (PDF, max 5MB), cover letter text. Matching score + found/missing keywords auto-calculated/stored. Status defaults to `received`. Returns 201. |
 | US-APP-02 | As a candidate, I cannot apply twice to the same job | Unique constraint on (candidate_id, job_id). Returns 422. |
 | US-APP-03 | As a recruiter, I can view applications for my jobs | Filter by job_id. Sorted by matching_score DESC. Returns 200. |
 | US-APP-04 | As a recruiter, I can view a single application | Only for own jobs. Returns 200. 403 if not owner. |
-| US-APP-05 | As a recruiter, I can update pipeline status | Status: received → interview → accepted/refused. Only forward movement allowed (no going back from accepted to received). Returns 200. |
+| US-APP-05 | As a recruiter, I can update pipeline status | Status: received → interview → accepted/refused. Only forward movement allowed (accepted is terminal). Returns 200. |
 | US-APP-06 | As a recruiter, I can add notes and comments to an application | Notes (internal), comments (visible to candidate via email). Returns 200. |
-| US-APP-07 | As a candidate, I can view my own applications | List of all my applications with job info and scores. Returns 200. |
+| US-APP-07 | As a candidate, I can view my own applications | List of all my applications with job info, score and found/missing keywords. Returns 200. |
 | US-APP-08 | As a candidate, I can view a single application detail | Only own applications. Returns 200. 403 otherwise. |
+| US-APP-09 | As a recruiter, I can apply quick tags to an application | Tags from a predefined set (à relancer, prioritaire, réserve, entretien planifié). Returns 200. |
+| US-APP-10 | As a recruiter, I can update several applications' status in one action | Batch status change on selected applications of own jobs. Ownership enforced for every item. Returns 200. |
+
+### Recruiter Productivity Tools (US-PROD)
+
+| ID | Story | Acceptance Criteria |
+|---|---|---|
+| US-PROD-01 | As a recruiter, I can save a filter combination | Store criteria (min score, tech stack, contract type, status). Reusable in one click. Returns 201. |
+| US-PROD-02 | As a recruiter, I can list/update/delete my saved filters | Only owner. Returns 200/204. |
+| US-PROD-03 | As a recruiter, I can compare 2 to 4 applications of the same offer | Side-by-side view: score, found/missing keywords, interview notes. Returns 200. |
+| US-PROD-04 | As a recruiter, I can generate the top-5 shortlist of an offer | Top 5 applications sorted by matching_score DESC. Returns 200. |
+| US-PROD-05 | As a recruiter, I can export a shortlist selection (CSV/PDF) | Export for sharing with an external hiring manager. Returns file. |
+| US-PROD-06 | As a recruiter, I can get similar-profile suggestions on refusal | On rejecting an application, suggest other similar candidates fitting open offers. Returns 200. |
+| US-PROD-07 | As a recruiter, I can use quick reply templates | 2-3 reusable templates (follow-up, standard refusal), editable by the recruiter, applied on status change. Returns 200. |
 
 ### Interviews (US-INT)
 
@@ -108,10 +146,10 @@ An enterprise in Agadir manages recruitment via emails and Excel. SmartRecruit c
 
 | ID | Story | Acceptance Criteria |
 |---|---|---|
-| US-BONUS-01 | Leaderboard: top 5 candidates per job | Sorted by matching_score DESC, limited to 5. Visible on job detail. |
-| US-BONUS-02 | Badge system on candidate profiles | Auto-awarded: `cv_complet` (CV uploaded), `high_match` (score > 80), `interview_passed` (interview completed with avg score > 3). |
-| US-BONUS-03 | Interview question generator | From tech_stack keywords, generate 3-5 questions. Rule-based (no external AI). |
-| US-BONUS-04 | PDF export of candidate profile | Downloadable PDF with name, email, applications, badges, scores. |
+| US-BONUS-01 | Quick badges shown on the recruiter's candidate card | Auto-computed screening signals: `cv_complet` (CV uploaded), `high_match` (score > 80), `interview_passed` (completed interview with avg score > 3). Recruiter-side sorting signals, NOT candidate-visible rewards. |
+| US-BONUS-02 | Interview question generator | From tech_stack keywords, generate 3-5 questions via the `laravel/ai` SDK (Groq). |
+
+**Removed from scope (per cahier des charges):** the leaderboard (top-5 ranking on job detail) and the PDF export of the *candidate profile* — both initially planned as candidate-facing features — are withdrawn to focus effort on the recruiter tools above. The recruiter shortlist export (US-PROD-05) replaces the candidate-profile PDF export.
 
 ---
 
@@ -125,10 +163,11 @@ An enterprise in Agadir manages recruitment via emails and Excel. SmartRecruit c
 3. create_jobs_table (queue jobs, not job offers)
 4. create_password_reset_tokens_table (part of users migration)
 5. create_personal_access_tokens_table (Sanctum)
-6. create_jobs_offers_table (renamed to avoid conflict with queue jobs)
+6. create_job_offers_table (renamed to avoid conflict with queue jobs)
 7. create_applications_table
 8. create_interviews_table
 9. create_badges_table
+10. create_saved_filters_table (recruiter saved filter combinations)
 ```
 
 **CRITICAL NAMING:** The job offers table MUST be named `job_offers` (not `jobs`) because Laravel already uses a `jobs` table for the queue system. This is a common mistake.
@@ -195,6 +234,9 @@ CREATE TABLE applications (
     cv_path VARCHAR(255) NOT NULL COMMENT 'Relative path: cvs/{user_id}/{filename}.pdf',
     cover_letter TEXT NOT NULL,
     matching_score DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT 'Score 0.00-100.00',
+    matched_keywords JSON NULL COMMENT 'Keywords found in CV: ["PHP","Laravel"]',
+    missing_keywords JSON NULL COMMENT 'Keywords not found in CV: ["Docker","Redis"]',
+    tags JSON NULL COMMENT 'Predefined recruiter tags: ["prioritaire","a_relancer"]',
     status ENUM('received', 'interview', 'accepted', 'refused') NOT NULL DEFAULT 'received',
     notes TEXT NULL COMMENT 'Internal recruiter notes',
     comments TEXT NULL COMMENT 'Visible to candidate',
@@ -213,6 +255,8 @@ CREATE TABLE applications (
 **Notes:**
 - `UNIQUE KEY (candidate_id, job_offer_id)` — prevents duplicate applications
 - `matching_score` is calculated at upload time, NOT real-time
+- `matched_keywords` / `missing_keywords` store the transparent keyword detail (recruiter-facing)
+- `tags` holds the predefined quick tags (à relancer, prioritaire, réserve, entretien planifié)
 - `status` enum values: `received` → `interview` → `accepted` | `refused`
 - `cv_path` stores relative path, file stored on `public` disk
 
@@ -260,8 +304,27 @@ CREATE TABLE badges (
 
 **Notes:**
 - `UNIQUE KEY (candidate_id, type)` — one badge per type per candidate
-- Badges are awarded automatically (observer/event pattern)
+- Badges are computed automatically (observer/event pattern) and shown **on the recruiter's candidate card** as quick sorting signals
 - `type` values: `cv_complet`, `high_match`, `interview_passed`
+
+### Table: `saved_filters`
+
+```sql
+CREATE TABLE saved_filters (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    recruiter_id BIGINT UNSIGNED NOT NULL,
+    name VARCHAR(255) NOT NULL COMMENT 'Label shown to the recruiter',
+    criteria JSON NOT NULL COMMENT 'e.g. {"min_score":80,"tech_stack":["PHP","Laravel"],"contract_type":"CDI","status":"received"}',
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    INDEX idx_saved_filters_recruiter (recruiter_id),
+    CONSTRAINT fk_saved_filters_recruiter FOREIGN KEY (recruiter_id) REFERENCES users(id) ON DELETE CASCADE
+);
+```
+
+**Notes:**
+- One recruiter can store several named filter combinations
+- `criteria` is a JSON blob of the filter fields accepted by the applications listing
 
 ---
 
@@ -285,10 +348,16 @@ class User extends Authenticatable
         return $this->hasMany(Application::class, 'candidate_id');
     }
 
-    // A candidate has many badges
+    // A candidate has many badges (displayed on the recruiter's candidate card)
     public function badges(): HasMany
     {
         return $this->hasMany(Badge::class, 'candidate_id');
+    }
+
+    // A recruiter has many saved filters
+    public function savedFilters(): HasMany
+    {
+        return $this->hasMany(SavedFilter::class, 'recruiter_id');
     }
 
     // Helper: is recruiter?
@@ -348,13 +417,17 @@ class Application extends Model
 
     protected $fillable = [
         'candidate_id', 'job_offer_id', 'cv_path', 'cover_letter',
-        'matching_score', 'status', 'notes', 'comments',
+        'matching_score', 'matched_keywords', 'missing_keywords', 'tags',
+        'status', 'notes', 'comments',
     ];
 
     protected function casts(): array
     {
         return [
             'matching_score' => 'decimal:2',
+            'matched_keywords' => 'array',
+            'missing_keywords' => 'array',
+            'tags' => 'array',
         ];
     }
 
@@ -439,6 +512,27 @@ class Badge extends Model
         return $this->belongsTo(User::class, 'candidate_id');
     }
 }
+
+// SavedFilter Model
+class SavedFilter extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['recruiter_id', 'name', 'criteria'];
+
+    protected function casts(): array
+    {
+        return [
+            'criteria' => 'array',
+        ];
+    }
+
+    // A saved filter belongs to a recruiter
+    public function recruiter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recruiter_id');
+    }
+}
 ```
 
 ---
@@ -455,6 +549,7 @@ database/migrations/
   2026_07_13_000005_create_applications_table.php
   2026_07_13_000006_create_interviews_table.php
   2026_07_13_000007_create_badges_table.php
+  2026_07_13_000008_create_saved_filters_table.php
 ```
 
 ---
@@ -492,11 +587,13 @@ database/migrations/
 | Method | Endpoint | Auth | Role | Description | Response |
 |---|---|---|---|---|---|
 | GET | `/api/applications` | Yes | candidate | List own applications | `{data: [...]}` 200 |
-| GET | `/api/job-offers/{id}/applications` | Yes | recruiter | List applications for job | `{data: [...], leaderboard}` 200 |
+| GET | `/api/job-offers/{id}/applications` | Yes | recruiter | List applications for job (filterable, sorted by score) | `{data: [...], filters, meta}` 200 |
 | GET | `/api/applications/{id}` | Yes | — | Show application detail | `{data: application}` 200 |
 | POST | `/api/job-offers/{id}/apply` | Yes | candidate | Apply to job | `{data: application}` 201 |
 | PUT | `/api/applications/{id}/status` | Yes | recruiter | Update pipeline status | `{data: application}` 200 |
+| PUT | `/api/applications/status/batch` | Yes | recruiter | Batch update status for selected applications | `{data: [...], updated, skipped}` 200 |
 | PUT | `/api/applications/{id}/notes` | Yes | recruiter | Add notes/comments | `{data: application}` 200 |
+| PUT | `/api/applications/{id}/tags` | Yes | recruiter | Set quick tags | `{data: application}` 200 |
 
 **POST /api/job-offers/{id}/apply — Multipart Form:**
 - `cv` — PDF file, max 5MB, required
@@ -504,6 +601,24 @@ database/migrations/
 
 **PUT /api/applications/{id}/status — Request:**
 - `{status: "interview"}` — must be valid transition
+
+**PUT /api/applications/status/batch — Request:**
+- `{ids: [12, 13, 14], status: "refused"}` — every id must belong to one of the recruiter's job offers
+
+### Recruiter Productivity Tools
+
+| Method | Endpoint | Auth | Role | Description | Response |
+|---|---|---|---|---|---|
+| GET | `/api/saved-filters` | Yes | recruiter | List my saved filters | `{data: [...]}` 200 |
+| POST | `/api/saved-filters` | Yes | recruiter | Create a saved filter | `{data: filter}` 201 |
+| PUT | `/api/saved-filters/{id}` | Yes | recruiter | Update my saved filter | `{data: filter}` 200 |
+| DELETE | `/api/saved-filters/{id}` | Yes | recruiter | Delete my saved filter | 204 |
+| POST | `/api/applications/compare` | Yes | recruiter | Compare 2-4 applications of one offer | `{data: [...]}` 200 |
+| GET | `/api/job-offers/{id}/shortlist` | Yes | recruiter | Top-5 applications by score | `{data: [...]}` 200 |
+| GET | `/api/job-offers/{id}/shortlist/export` | Yes | recruiter | Export shortlist (CSV/PDF) | file 200 |
+| GET | `/api/applications/{id}/suggestions` | Yes | recruiter | Similar profiles on refusal | `{data: [...]}` 200 |
+| GET | `/api/reply-templates` | Yes | recruiter | List quick reply templates | `{data: [...]}` 200 |
+| PUT | `/api/reply-templates/{key}` | Yes | recruiter | Edit a quick reply template | `{data: template}` 200 |
 
 ### Interviews
 
@@ -524,14 +639,28 @@ database/migrations/
 
 | Method | Endpoint | Auth | Role | Description | Response |
 |---|---|---|---|---|---|
-| GET | `/api/dashboard/stats` | Yes | recruiter | Dashboard statistics | `{active_offers, total_applications, acceptance_rate, recent_applications}` 200 |
-| GET | `/api/leaderboard/{jobOfferId}` | Yes | — | Top 5 candidates per job | `{data: [...top 5 by score]}` 200 |
+| GET | `/api/dashboard/stats` | Yes | recruiter | Analytical dashboard | `{funnels, time_to_hire, score_distribution, recent_activity, offer_comparison, pending_tasks}` 200 |
 
-### Badges (Bonus)
-
-| Method | Endpoint | Auth | Role | Description | Response |
-|---|---|---|---|---|---|
-| GET | `/api/candidates/{id}/badges` | Yes | — | Get candidate badges | `{data: [...badges]}` 200 |
+**Dashboard payload shape:**
+```json
+{
+  "funnels": [
+    { "job_offer_id": 1, "title": "Laravel Dev",
+      "received": 24, "interview": 8, "accepted": 3, "refused": 13,
+      "rates": { "received": 100, "interview": 33.3, "accepted": 12.5, "refused": 54.2 } }
+  ],
+  "time_to_hire": { "global_avg_days": 9.4, "by_offer": [ { "job_offer_id": 1, "avg_days": 7.1 } ] },
+  "score_distribution": { ">80": 5, "50-80": 12, "<50": 7 },
+  "recent_activity": [ { "type": "application", "label": "...", "at": "..." } ],
+  "offer_comparison": [
+    { "job_offer_id": 1, "interview_to_accepted": 37.5, "recruiter_avg": 30.1 }
+  ],
+  "pending_tasks": {
+    "interviews_to_evaluate": 2,
+    "applications_pending_over_7_days": 4
+  }
+}
+```
 
 ---
 
@@ -566,76 +695,109 @@ database/migrations/
 
 ## Matching Algorithm (Detailed)
 
+The compatibility score is produced by an **AI-powered matching engine** built on the `laravel/ai` SDK using the **Groq** driver. The AI receives the job's tech stack and the extracted CV text, and returns a score (0–100) together with the found and missing keywords — keeping the result transparent for the recruiter. PDF text is still extracted locally (to feed the model as context); the scoring and keyword extraction are driven by the AI.
+
 ### Input
 - `job.tech_stack` — comma-separated string: `"PHP, Laravel, MySQL, Docker, Git"`
 - `application.cv_path` — PDF file on storage disk
+- `laravel/ai` (Groq) — configured via `config/ai.php` with `GROQ_API_KEY` in `.env`
 
 ### Steps
 
 ```
-1. EXTRACT job keywords
+1. EXTRACT job keywords (context for the prompt)
    job_keywords = explode(',', job.tech_stack)
    // → ["PHP", "Laravel", "MySQL", "Docker", "Git"]
-   // → lowercase + trim each: ["php", "laravel", "mysql", "docker", "git"]
 
-2. EXTRACT CV text
+2. EXTRACT CV text (local, feeds the AI as context)
    cv_text = pdf_to_text(cv_path)
    // Use Smalot\PdfParser or similar Laravel-compatible PDF parser
-   // Convert to lowercase
 
-3. MATCH keywords
-   matched = 0
-   total = count(job_keywords)
+3. CALL the AI (Groq) via laravel/ai
+   prompt = "Given the required tech stack and the candidate CV text,
+             score the candidate from 0 to 100 and list which required
+             keywords were found in the CV and which are missing.
+             Return strict JSON: {score, matched_keywords, missing_keywords}."
+   // Routed through the MatchingAgent (Laravel\Ai\Agent, groq driver)
+   ai_response = MatchingAgent::score(job.tech_stack, cv_text)
 
-   foreach job_keywords as keyword:
-       if str_contains(cv_text, keyword):
-           matched++
+4. PARSE structured output
+   result = json_decode(ai_response->text)
+   score = result['score']                 // 0.00 – 100.00
+   matched_list = result['matched_keywords']   // ["PHP","Laravel","MySQL"]
+   missing_list = result['missing_keywords']   // ["Docker","Git"]
 
-4. CALCULATE score
-   score = (matched / total) * 100
-   // Round to 2 decimal places
-   // Example: 3/5 keywords found → 60.00
-
-5. STORE
+5. STORE the detail (transparency for the recruiter)
    application.matching_score = score
+   application.matched_keywords = matched_list
+   application.missing_keywords = missing_list
+   // Recruiter sees: "Trouvés : PHP, Laravel, MySQL — Manquants : Docker, Git"
+
+6. PROCESS asynchronously
+   Dispatch CalculateMatchingScoreJob so the 201 response is not blocked by the AI call.
 ```
 
 ### Implementation
 
 ```php
+// app/Agents/MatchingAgent.php
+
+namespace App\Agents;
+
+use Laravel\Ai\Agent;
+
+class MatchingAgent extends Agent
+{
+    protected string $driver = 'groq';
+    protected string $model = 'llama-3.3-70b-versatile';
+
+    // Returns structured output: ['score' => int, 'matched_keywords' => [], 'missing_keywords' => []]
+    public function score(string $techStack, string $cvText): array
+    {
+        return $this->withResponseFormat(['type' => 'json_object'])->prompt(
+            "Required tech stack: {$techStack}\n\n"
+            . "Candidate CV:\n{$cvText}\n\n"
+            . "Score the candidate from 0 to 100 and list which required keywords "
+            . "were found in the CV and which are missing. "
+            . "Respond ONLY with strict JSON: "
+            . "{\"score\": <number>, \"matched_keywords\": [\"...\"], \"missing_keywords\": [\"...\"]}."
+        );
+    }
+}
+
 // app/Services/MatchingService.php
 
 namespace App\Services;
 
-use App\Models\JobOffer;
+use App\Agents\MatchingAgent;
 use App\Models\Application;
 use Smalot\PdfParser\Parser;
 
 class MatchingService
 {
-    public function calculateScore(Application $application): float
+    /**
+     * Calls the laravel/ai (Groq) engine via the MatchingAgent and returns
+     * ['score' => float, 'matched' => string[], 'missing' => string[]].
+     *
+     * The agent is resolved from the container so it can be faked in tests.
+     */
+    public function calculateScore(Application $application): array
     {
         $job = $application->jobOffer;
-        $keywords = $this->parseKeywords($job->tech_stack);
         $cvText = $this->extractCvText($application->cv_path);
 
-        if (empty($keywords)) {
-            return 0.0;
+        if (trim($cvText) === '') {
+            // Scanned / image-only PDF: no text to send to the AI.
+            return ['score' => 0.0, 'matched' => [], 'missing' => []];
         }
 
-        $matched = 0;
-        foreach ($keywords as $keyword) {
-            if (str_contains(strtolower($cvText), strtolower($keyword))) {
-                $matched++;
-            }
-        }
+        $result = (new MatchingAgent)->score($job->tech_stack, $cvText);
 
-        return round(($matched / count($keywords)) * 100, 2);
-    }
-
-    protected function parseKeywords(string $techStack): array
-    {
-        return array_map('trim', array_map('strtolower', explode(',', $techStack)));
+        return [
+            'score' => round((float) ($result['score'] ?? 0), 2),
+            'matched' => $result['matched_keywords'] ?? [],
+            'missing' => $result['missing_keywords'] ?? [],
+        ];
     }
 
     protected function extractCvText(string $cvPath): string
@@ -649,10 +811,12 @@ class MatchingService
 ```
 
 ### Important Notes
-- The matching runs **once at application upload time** (in the ApplicationObserver or in the controller)
-- Score is stored in `applications.matching_score` — NOT recalculated on read
+- The matching runs **once at application upload time** (in the `ApplicationObserver` or in the controller)
+- Score, matched keywords and missing keywords are stored — NOT recalculated on read
 - Use `Queue::job(new CalculateMatchingScoreJob($application))` for async processing
-- Return 201 immediately, process score in background
+- Return 201 immediately, process the AI score in the background
+- The `MatchingAgent` extends `Laravel\Ai\Agent`; tests use `MatchingAgent::fake([...])` (no real Groq call, no API key needed in CI)
+- If the PDF yields no text (scanned CV), default the score to 0 and store empty lists
 
 ---
 
@@ -668,7 +832,8 @@ received ──▶ interview ──▶ accepted
 - `interview` → `accepted` (recruiter accepts candidate)
 - `interview` → `refused` (recruiter rejects candidate)
 - `received` → `refused` (direct rejection without interview)
-- `accepted` → `refused` (can change mind) — OPTIONAL, debatable
+- **`accepted` is a TERMINAL state** — no transition out of it is allowed (no going back to received/interview, no accepted→refused)
+- **`refused` is a TERMINAL state** — no transition out of it is allowed
 - **Cannot go backwards**: `accepted` → `received` is FORBIDDEN
 
 ### Validation in Controller
@@ -678,8 +843,8 @@ received ──▶ interview ──▶ accepted
 $validTransitions = [
     'received' => ['interview', 'refused'],
     'interview' => ['accepted', 'refused'],
-    'accepted' => [],   // terminal state
-    'refused' => [],    // terminal state
+    'accepted' => [],   // terminal state — strictly no exit
+    'refused' => [],    // terminal state — strictly no exit
 ];
 
 if (!in_array($request->status, $validTransitions[$currentStatus])) {
@@ -688,6 +853,11 @@ if (!in_array($request->status, $validTransitions[$currentStatus])) {
     ], 422);
 }
 ```
+
+### Batch status update
+- The same `$validTransitions` rules apply per application.
+- Each id in the batch is checked for ownership (must belong to one of the recruiter's job offers) and for a valid transition.
+- Items failing ownership return 403; items failing transition are skipped (reported in the `skipped` list), not failed wholesale.
 
 ---
 
@@ -812,6 +982,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:recruiter')->group(function () {
         Route::apiResource('job-offers', JobOfferController::class)->except(['index', 'show']);
         Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+
+        // Recruiter productivity tools
+        Route::apiResource('saved-filters', SavedFilterController::class);
+        Route::post('/applications/compare', [ApplicationController::class, 'compare']);
+        Route::get('/job-offers/{id}/shortlist', [ShortlistController::class, 'index']);
+        Route::get('/job-offers/{id}/shortlist/export', [ShortlistController::class, 'export']);
+        Route::get('/applications/{id}/suggestions', [ApplicationController::class, 'suggestions']);
+        Route::get('/reply-templates', [ReplyTemplateController::class, 'index']);
+        Route::put('/reply-templates/{key}', [ReplyTemplateController::class, 'update']);
     });
 
     // Candidate-only routes
@@ -823,13 +1002,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // Shared authenticated routes (with ownership checks in controller/policy)
     Route::get('/applications/{id}', [ApplicationController::class, 'show']);
     Route::put('/applications/{id}/status', [ApplicationController::class, 'updateStatus']);
+    Route::put('/applications/status/batch', [ApplicationController::class, 'batchUpdateStatus']);
     Route::put('/applications/{id}/notes', [ApplicationController::class, 'updateNotes']);
+    Route::put('/applications/{id}/tags', [ApplicationController::class, 'updateTags']);
     Route::get('/job-offers/{id}/applications', [ApplicationController::class, 'byJob']);
     Route::post('/applications/{id}/interviews', [InterviewController::class, 'store']);
     Route::put('/interviews/{id}/complete', [InterviewController::class, 'complete']);
     Route::put('/interviews/{id}/cancel', [InterviewController::class, 'cancel']);
     Route::get('/applications/{id}/interviews', [InterviewController::class, 'index']);
-    Route::get('/leaderboard/{jobOfferId}', [LeaderboardController::class, 'show']);
 });
 ```
 
@@ -925,7 +1105,24 @@ class ApplicationPolicy
             && $application->jobOffer->recruiter_id === $user->id;
     }
 
+    public function updateStatusBatch(User $user, array $applications): bool
+    {
+        // Every application in the batch must belong to one of the recruiter's job offers.
+        foreach ($applications as $application) {
+            if ($application->jobOffer->recruiter_id !== $user->id) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public function addNotes(User $user, Application $application): bool
+    {
+        return $user->isRecruiter()
+            && $application->jobOffer->recruiter_id === $user->id;
+    }
+
+    public function updateTags(User $user, Application $application): bool
     {
         return $user->isRecruiter()
             && $application->jobOffer->recruiter_id === $user->id;
@@ -1003,6 +1200,48 @@ class UpdateApplicationStatusRequest extends FormRequest
     }
 }
 
+// app/Http/Requests/BatchUpdateStatusRequest.php
+class BatchUpdateStatusRequest extends FormRequest
+{
+    public function rules(): array
+    {
+        return [
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:applications,id'],
+            'status' => ['required', 'in:interview,accepted,refused'],
+        ];
+    }
+}
+
+// app/Http/Requests/UpdateApplicationTagsRequest.php
+class UpdateApplicationTagsRequest extends FormRequest
+{
+    public function rules(): array
+    {
+        return [
+            'tags' => ['nullable', 'array'],
+            'tags.*' => ['string', 'in:a_relancer,prioritaire,reserve,entretien_planifie'],
+        ];
+    }
+}
+
+// app/Http/Requests/StoreSavedFilterRequest.php
+class StoreSavedFilterRequest extends FormRequest
+{
+    public function rules(): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:255'],
+            'criteria' => ['required', 'array'],
+            'criteria.min_score' => ['nullable', 'numeric', 'between:0,100'],
+            'criteria.tech_stack' => ['nullable', 'array'],
+            'criteria.tech_stack.*' => ['string'],
+            'criteria.contract_type' => ['nullable', 'string', 'in:CDI,CDD,Stage,Alternance,Freelance'],
+            'criteria.status' => ['nullable', 'string', 'in:received,interview,accepted,refused'],
+        ];
+    }
+}
+
 // app/Http/Requests/StoreInterviewRequest.php
 class StoreInterviewRequest extends FormRequest
 {
@@ -1061,14 +1300,19 @@ class ApplicationResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $user = $request->user();
+
         return [
             'id' => $this->id,
             'matching_score' => $this->matching_score,
+            'matched_keywords' => $this->matched_keywords,
+            'missing_keywords' => $this->missing_keywords,
+            'tags' => $this->tags,
             'status' => $this->status,
             'cv_path' => $this->cv_path,
             'cover_letter' => $this->cover_letter,
-            'notes' => $this->when($request->user()->isRecruiter(), $this->notes),
-            'comments' => $this->when($request->user()->isRecruiter(), $this->comments),
+            'notes' => $this->when($user->isRecruiter(), $this->notes),
+            'comments' => $this->when($user->isRecruiter(), $this->comments),
             'candidate' => new UserResource($this->whenLoaded('candidate')),
             'job_offer' => new JobOfferResource($this->whenLoaded('jobOffer')),
             'interviews' => InterviewResource::collection($this->whenLoaded('interviews')),
@@ -1112,6 +1356,32 @@ class InterviewResource extends JsonResource
         ];
     }
 }
+
+// app/Http/Resources/BadgeResource.php
+class BadgeResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'type' => $this->type,
+            'awarded_at' => $this->awarded_at->toISOString(),
+        ];
+    }
+}
+
+// app/Http/Resources/SavedFilterResource.php
+class SavedFilterResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'criteria' => $this->criteria,
+            'created_at' => $this->created_at->toISOString(),
+        ];
+    }
+}
 ```
 
 ---
@@ -1131,8 +1401,9 @@ app/
 │   │       ├── ApplicationController.php
 │   │       ├── InterviewController.php
 │   │       ├── DashboardController.php
-│   │       ├── LeaderboardController.php
-│   │       └── BadgeController.php
+│   │       ├── SavedFilterController.php
+│   │       ├── ShortlistController.php
+│   │       └── ReplyTemplateController.php
 │   ├── Middleware/
 │   │   └── EnsureUserHasRole.php
 │   ├── Requests/
@@ -1143,6 +1414,10 @@ app/
 │   │   ├── UpdateJobOfferRequest.php
 │   │   ├── ApplyRequest.php
 │   │   ├── UpdateApplicationStatusRequest.php
+│   │   ├── BatchUpdateStatusRequest.php
+│   │   ├── UpdateApplicationTagsRequest.php
+│   │   ├── StoreSavedFilterRequest.php
+│   │   ├── UpdateSavedFilterRequest.php
 │   │   ├── UpdateApplicationNotesRequest.php
 │   │   ├── StoreInterviewRequest.php
 │   │   └── CompleteInterviewRequest.php
@@ -1151,9 +1426,12 @@ app/
 │       ├── JobOfferResource.php
 │       ├── ApplicationResource.php
 │       ├── InterviewResource.php
-│       └── BadgeResource.php
+│       ├── BadgeResource.php
+│       └── SavedFilterResource.php
 ├── Jobs/
 │   └── CalculateMatchingScoreJob.php
+├── Agents/
+│   └── MatchingAgent.php                  # laravel/ai agent (Groq) — scores CV vs job stack
 ├── Mail/
 │   └── ApplicationStatusMail.php
 ├── Models/
@@ -1161,22 +1439,27 @@ app/
 │   ├── JobOffer.php
 │   ├── Application.php
 │   ├── Interview.php
-│   └── Badge.php
+│   ├── Badge.php
+│   └── SavedFilter.php
 ├── Observers/
-│   ├── ApplicationObserver.php            # auto-calculate score on created
+│   ├── ApplicationObserver.php            # auto-calculate score + keywords on created
 │   └── InterviewObserver.php              # auto-award badge on completed
 ├── Policies/
 │   ├── JobOfferPolicy.php
 │   └── ApplicationPolicy.php
-└── Services/
-    ├── MatchingService.php
-    └── BadgeService.php
+├── Services/
+│   ├── MatchingService.php
+│   ├── BadgeService.php
+│   ├── SuggestionService.php              # similar-profile suggestions on refusal
+│   └── ShortlistService.php               # top-5 + CSV/PDF export
+└── Support/
+    └── ReplyTemplates.php                 # default + editable quick reply templates
 
 bootstrap/
 └── app.php                                # MODIFIED: add api routes + role middleware
 
 config/
-└── (all defaults — no published configs needed except Sanctum via env)
+└── (all defaults — no published configs needed except Sanctum via env; `laravel/ai` publishes `config/ai.php` for the Groq driver)
 
 database/
 ├── factories/
@@ -1184,7 +1467,8 @@ database/
 │   ├── JobOfferFactory.php
 │   ├── ApplicationFactory.php
 │   ├── InterviewFactory.php
-│   └── BadgeFactory.php
+│   ├── BadgeFactory.php
+│   └── SavedFilterFactory.php
 ├── migrations/
 │   ├── 0001_01_01_000000_create_users_table.php      # MODIFIED
 │   ├── 0001_01_01_000001_create_cache_table.php       # exists
@@ -1193,7 +1477,8 @@ database/
 │   ├── 2026_07_13_000004_create_job_offers_table.php
 │   ├── 2026_07_13_000005_create_applications_table.php
 │   ├── 2026_07_13_000006_create_interviews_table.php
-│   └── 2026_07_13_000007_create_badges_table.php
+│   ├── 2026_07_13_000007_create_badges_table.php
+│   └── 2026_07_13_000008_create_saved_filters_table.php
 └── seeders/
     └── DatabaseSeeder.php                 # MODIFIED: seed test data
 
@@ -1202,32 +1487,41 @@ resources/
 │   └── app.css
 ├── js/
 │   └── app.js
-└── views/
-    ├── layouts/
-    │   └── app.blade.php                 # main layout
-    ├── components/
-    │   ├── navbar.blade.php
-    │   ├── sidebar.blade.php
-    │   └── kanban-card.blade.php
-    ├── dashboard/
-    │   └── index.blade.php               # recruiter dashboard
-    ├── job-offers/
-    │   ├── index.blade.php               # list jobs
-    │   ├── show.blade.php                # job detail
-    │   ├── create.blade.php              # create form
-    │   └── edit.blade.php                # edit form
-    ├── applications/
-    │   ├── index.blade.php               # candidate's applications
-    │   ├── show.blade.php                # application detail
-    │   └── kanban.blade.php              # recruiter Kanban board
-    ├── interviews/
-    │   ├── index.blade.php               # list interviews
-    │   └── schedule.blade.php            # schedule form
-    ├── auth/
-    │   ├── login.blade.php
-    │   └── register.blade.php
-    └── profiles/
-        └── show.blade.php                # candidate profile with badges
+├── views/
+│   ├── layouts/
+│   │   └── app.blade.php                 # main layout
+│   ├── components/
+│   │   ├── navbar.blade.php
+│   │   ├── sidebar.blade.php
+│   │   └── kanban-card.blade.php
+│   ├── dashboard/
+│   │   └── index.blade.php               # recruiter dashboard (analytics)
+│   ├── job-offers/
+│   │   ├── index.blade.php               # list jobs
+│   │   ├── show.blade.php                # job detail
+│   │   ├── create.blade.php              # create form
+│   │   └── edit.blade.php                # edit form
+│   ├── applications/
+│   │   ├── index.blade.php               # candidate's applications
+│   │   ├── show.blade.php                # application detail
+│   │   ├── kanban.blade.php              # recruiter Kanban board (batch actions, tags)
+│   │   ├── compare.blade.php             # side-by-side candidate comparison
+│   │   └── shortlist.blade.php           # top-5 shortlist + export
+│   ├── interviews/
+│   │   ├── index.blade.php               # list interviews
+│   │   └── schedule.blade.php            # schedule form
+│   ├── saved-filters/
+│   │   └── index.blade.php               # manage saved filters
+│   ├── auth/
+│   │   ├── login.blade.php
+│   │   └── register.blade.php
+│   └── profiles/
+│       └── show.blade.php                # candidate profile
+├── emails/
+│   └── application/
+│       └── status.blade.php              # status notification email
+└── exports/
+    └── shortlist.blade.php               # PDF shortlist export template
 
 routes/
 ├── web.php                               # MODIFIED: all Blade routes
@@ -1242,6 +1536,9 @@ tests/
 │   │   └── LogoutTest.php
 │   ├── JobOfferTest.php
 │   ├── ApplicationTest.php
+│   ├── ApplicationBatchTest.php
+│   ├── SavedFilterTest.php
+│   ├── ShortlistTest.php
 │   ├── InterviewTest.php
 │   ├── DashboardTest.php
 │   └── Api/
@@ -1249,6 +1546,7 @@ tests/
 ├── Unit/
 │   ├── MatchingServiceTest.php
 │   ├── BadgeServiceTest.php
+│   ├── SuggestionServiceTest.php
 │   └── Models/
 │       └── ApplicationTest.php
 └── TestCase.php
@@ -1342,39 +1640,84 @@ it('unauthenticated user cannot create job offer', function () {
 
     $response->assertStatus(401);
 });
+
+// tests/Feature/ApplicationBatchTest.php
+it('recruiter can batch-reject own applications', function () {
+    $recruiter = User::factory()->create(['role' => 'recruiter']);
+    $job = JobOffer::factory()->create(['recruiter_id' => $recruiter->id]);
+    $apps = Application::factory()->count(3)->create(['job_offer_id' => $job->id, 'status' => 'received']);
+
+    $response = $this->actingAs($recruiter)->putJson('/api/applications/status/batch', [
+        'ids' => $apps->pluck('id')->all(),
+        'status' => 'refused',
+    ]);
+
+    $response->assertStatus(200);
+    foreach ($apps as $app) {
+        $this->assertDatabaseHas('applications', ['id' => $app->id, 'status' => 'refused']);
+    }
+});
+
+it('batch rejects items not owned by the recruiter with 403', function () {
+    $recruiter = User::factory()->create(['role' => 'recruiter']);
+    $other = JobOffer::factory()->create(); // owned by someone else
+    $app = Application::factory()->create(['job_offer_id' => $other->id]);
+
+    $response = $this->actingAs($recruiter)->putJson('/api/applications/status/batch', [
+        'ids' => [$app->id],
+        'status' => 'refused',
+    ]);
+
+    $response->assertStatus(403);
+});
 ```
 
 #### Unit Tests (Services/Algorithms)
 
 ```php
 // tests/Unit/MatchingServiceTest.php
-it('calculates matching score correctly', function () {
+it('calculates matching score and keyword detail via the AI engine', function () {
+    // Fake the laravel/ai (Groq) agent so the test runs offline (no API key in CI).
+    MatchingAgent::fake([
+        [
+            'score' => 75.0,
+            'matched_keywords' => ['PHP', 'Laravel', 'MySQL'],
+            'missing_keywords' => ['Docker'],
+        ],
+    ]);
+
     $service = new MatchingService();
 
-    $job = JobOffer::factory()->create(['tech_stack' => 'PHP, Laravel, MySQL']);
+    $job = JobOffer::factory()->create(['tech_stack' => 'PHP, Laravel, MySQL, Docker']);
     $application = Application::factory()->create(['job_offer_id' => $job->id]);
 
-    // Create a mock CV file with PHP and Laravel keywords
     Storage::fake('public');
     Storage::put('cvs/' . $application->candidate_id . '/test_cv.pdf', 'PHP Laravel MySQL developer');
 
-    $score = $service->calculateScore($application);
+    $result = $service->calculateScore($application);
 
-    expect($score)->toBe(100.0); // All 3 keywords found
+    expect($result['score'])->toBe(75.0);
+    expect($result['matched'])->toBe(['PHP', 'Laravel', 'MySQL']);
+    expect($result['missing'])->toBe(['Docker']);
 });
 
-it('returns 0 when no keywords match', function () {
+it('returns 0 and empty lists when the CV has no extractable text', function () {
+    MatchingAgent::fake(); // AI is never called for a text-less (scanned) PDF
+
     $service = new MatchingService();
 
     $job = JobOffer::factory()->create(['tech_stack' => 'Python, Django, React']);
     $application = Application::factory()->create(['job_offer_id' => $job->id]);
 
     Storage::fake('public');
-    Storage::put('cvs/' . $application->candidate_id . '/test_cv.pdf', 'PHP Laravel developer');
+    // Empty PDF text → no context to send to the AI.
+    Storage::put('cvs/' . $application->candidate_id . '/test_cv.pdf', '');
 
-    $score = $service->calculateScore($application);
+    $result = $service->calculateScore($application);
 
-    expect($score)->toBe(0.0);
+    expect($result['score'])->toBe(0.0);
+    expect($result['matched'])->toBe([]);
+    expect($result['missing'])->toBe([]);
 });
 ```
 
@@ -1409,7 +1752,7 @@ it('dispatches matching score job on apply', function () {
 7. **Use `Queue::fake()`** for testing jobs without running them
 8. **Use `Mail::fake()`** for testing emails without sending
 9. **Use `Storage::fake()`** for testing file uploads without writing to disk
-10. **Group tests by feature** (Auth/, JobOffer, Application, etc.)
+10. **Group tests by feature** (Auth/, JobOffer, Application, ApplicationBatch, etc.)
 
 ---
 
@@ -1464,6 +1807,8 @@ class BadgeService
     }
 }
 ```
+
+**Badges are recruiter-side screening signals** (shown on the candidate card in the recruiter's pipeline). They are NOT candidate-visible rewards, and there is intentionally no candidate-facing badge API endpoint.
 
 ---
 
@@ -1710,7 +2055,7 @@ jobs:
 
 ### 5. Matching Score Calculation
 **WRONG:** Calculating score on every request (expensive, requires PDF parsing)
-**RIGHT:** Calculate once at upload time, store in `matching_score` column
+**RIGHT:** Calculate once at upload time, store score + matched/missing keywords in `applications`.
 
 ### 6. File Storage in Tests
 **WRONG:** Writing real files during tests
@@ -1722,11 +2067,11 @@ jobs:
 
 ### 8. Missing Authorization
 **WRONG:** Only checking `auth()->check()` (authentication)
-**RIGHT:** Also check ownership (authorization) — `$jobOffer->recruiter_id === auth()->id()`
+**RIGHT:** Also check ownership (authorization) — `$jobOffer->recruiter_id === auth()->id()`. For batch actions, every item must pass the ownership check.
 
 ### 9. Migration Order
 **WRONG:** Creating `applications` table before `job_offers` (foreign key reference)
-**RIGHT:** Create parent tables first (users → job_offers → applications → interviews → badges)
+**RIGHT:** Create parent tables first (users → job_offers → applications → interviews → badges → saved_filters)
 
 ### 10. Test Database
 **WRONG:** Running tests against MySQL (slow, fragile)
@@ -1737,7 +2082,7 @@ jobs:
 **RIGHT:** `QUEUE_CONNECTION=sync` in phpunit.xml (jobs run immediately, synchronously)
 
 ### 12. API Response Format
-**WRING:** Returning raw Eloquent models
+**WRONG:** Returning raw Eloquent models
 **RIGHT:** Always use API Resources for consistent JSON structure
 
 ### 13. Password Confirmation
@@ -1752,6 +2097,18 @@ jobs:
 **WRONG:** Not filtering soft-deleted records in queries
 **RIGHT:** Soft-deleted records are automatically excluded by default, but be explicit when needed: `withTrashed()`
 
+### 16. Pipeline Terminal States
+**WRONG:** Allowing `accepted → refused` or any exit from `accepted`/`refused`
+**RIGHT:** `accepted` and `refused` are strictly terminal; the only allowed transitions are received→interview/refused and interview→accepted/refused.
+
+### 17. Badge Audience
+**WRONG:** Exposing badges through a candidate-facing API endpoint or presenting them as candidate rewards
+**RIGHT:** Badges are recruiter-side screening signals shown on the candidate card; no candidate badge endpoint.
+
+### 18. Removed Scope
+**WRONG:** Implementing the leaderboard (per-job top-5 ranking) or the candidate-profile PDF export
+**RIGHT:** Both are withdrawn from scope; the recruiter shortlist export (CSV/PDF) replaces them.
+
 ---
 
 ## Implementation Order (Step by Step)
@@ -1764,31 +2121,33 @@ STEP 2:  php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServicePr
 STEP 3:  Create users migration modification (add role, avatar columns)
 STEP 4:  Update User model (HasApiTokens, role, avatar, relationships)
 STEP 5:  Create job_offers migration + model + factory
-STEP 6:  Create applications migration + model + factory
+STEP 6:  Create applications migration (add matched_keywords, missing_keywords, tags) + model + factory
 STEP 7:  Create interviews migration + model + factory
 STEP 8:  Create badges migration + model + factory
-STEP 9:  php artisan migrate
-STEP 10: Create Form Requests (Register, Login, Store, Update)
-STEP 11: Create API Resources (User, JobOffer, Application, Interview, Badge)
-STEP 12: Create Policies (JobOfferPolicy, ApplicationPolicy)
-STEP 13: Create Middleware (EnsureUserHasRole)
-STEP 14: Register middleware + API routes in bootstrap/app.php
-STEP 15: Create AuthController (register, login, logout, profile)
-STEP 16: Create JobOfferController (CRUD)
-STEP 17: Create MatchingService + CalculateMatchingScoreJob
-STEP 18: Create ApplicationController (apply, status, notes)
-STEP 19: Create InterviewController (store, complete, cancel)
-STEP 20: Create DashboardController (stats)
-STEP 21: Create BadgeService + observers
-STEP 22: Create ApplicationStatusMail (Mailable)
-STEP 23: Write Feature tests (Auth, JobOffer, Application, Interview)
-STEP 24: Write Unit tests (MatchingService, BadgeService)
-STEP 25: Create Blade views (dashboard, job-offers, applications/kanban, auth)
-STEP 26: Create Dockerfile + docker-compose.yml
-STEP 27: Create .github/workflows/tests.yml
-STEP 28: Create README.md with installation instructions
-STEP 29: Generate MCD/MLD/Architecture diagrams
-STEP 30: Deploy to Railway/Render
+STEP 9:  Create saved_filters migration + model + factory
+STEP 10: php artisan migrate
+STEP 11: Create Form Requests (Register, Login, Store, Update, Apply, Status, Batch, Tags, SavedFilter)
+STEP 12: Create API Resources (User, JobOffer, Application, Interview, Badge, SavedFilter)
+STEP 13: Create Policies (JobOfferPolicy, ApplicationPolicy with batch scope)
+STEP 14: Create Middleware (EnsureUserHasRole)
+STEP 15: Register middleware + API routes in bootstrap/app.php
+STEP 16: Create AuthController (register, login, logout, profile)
+STEP 17: Create JobOfferController (CRUD)
+STEP 18: Create MatchingAgent (laravel/ai, Groq) + MatchingService + CalculateMatchingScoreJob (store score + keywords)
+STEP 19: Create ApplicationController (apply, status, batch, notes, tags, byJob, compare, suggestions)
+STEP 20: Create InterviewController (store, complete, cancel)
+STEP 21: Create DashboardController (funnel, time-to-hire, score distribution, activity, comparison, pending)
+STEP 22: Create SavedFilterController + ShortlistController + ReplyTemplateController
+STEP 23: Create BadgeService + SuggestionService + ShortlistService + observers
+STEP 24: Create ApplicationStatusMail (Mailable)
+STEP 25: Write Feature tests (Auth, JobOffer, Application, ApplicationBatch, SavedFilter, Shortlist, Interview, Dashboard)
+STEP 26: Write Unit tests (MatchingService, BadgeService, SuggestionService)
+STEP 27: Create Blade views (dashboard analytics, job-offers, applications/kanban+compare+shortlist, saved-filters, auth, profiles)
+STEP 28: Create Dockerfile + docker-compose.yml
+STEP 29: Create .github/workflows/tests.yml
+STEP 30: Create README.md with installation instructions
+STEP 31: Generate MCD/MLD/Architecture diagrams
+STEP 32: Deploy to Railway/Render
 ```
 
 ---
@@ -1870,22 +2229,52 @@ php artisan cache:clear
 
 ---
 
+## Deliverables Expected (CDD Section 6)
+
+| Deliverable | Detail |
+|---|---|
+| Source code (GitHub) | Regular clean commits, one branch per feature, readable history. |
+| Project management (Jira) | Backlog up to date, user stories organized by module (AUTH, JOB, APP, INT, NOTIF, DASH, BONUS). |
+| Database | MCD and MLD conform to the defined schema, Laravel migration scripts. |
+| Documented API | REST endpoints with request/response formats and normalized HTTP codes. |
+| Automated tests | Feature tests (endpoints) and Unit tests (services), run in CI. |
+| Containerization | Dockerfile + docker-compose.yml functional (app, MySQL, queue worker). |
+| CI/CD | GitHub Actions pipeline: install, migrate, test, code-style check. |
+| Documentation | README.md with install instructions, features, API endpoints. |
+| Presentation | Slides + live demo + architecture diagrams for the soutenance. |
+
+---
+
 ## Evaluation Criteria (Detailed)
 
 | Criterion | Weight | What They Look For |
 |---|---|---|
 | Laravel Architecture | 35% | Policies, FormRequests, Resources, Soft deletes, Services, Jobs, Observers, proper Eloquent usage, clean controller logic |
-| Functionalities | 25% | Pipeline Kanban working, applications CRUD, interviews with scoring, matching algorithm producing correct scores, badges auto-awarding, dashboard stats |
-| Presentation | 20% | Clear slides, live demo without bugs, MCD/MLD diagrams correct, architecture diagram clear, can explain every decision |
-| Organization & Process | 20% | 25+ clean git commits, Jira board up to date, feature branches, clean commit messages, code formatted with Pint |
+| Functionalities | 25% | Operational Kanban pipeline, **AI-powered matching** (score + found/missing keywords), **analytical dashboard**, **recruiter productivity tools** (batch actions, saved filters, comparison, shortlist, export, suggestions, templates), scored interviews |
+| Presentation | 20% | Clear slides, live demo without bugs, correct MCD/MLD and architecture diagrams, able to explain every decision |
+| Organization & Process | 20% | Regular commits, Jira up to date, feature branches, code formatted with Pint |
+
+---
+
+## Planning (CDD Section 8)
+
+| Period | Milestone |
+|---|---|
+| 13/07/2026 | Project launch — scope, Laravel init, Jira. |
+| Week 1-2 | Authentication, job offers, database, policies. |
+| Week 2-3 | Applications, AI-powered matching engine, Kanban pipeline, interviews. |
+| Week 3 | Recruiter analytical dashboard (funnel, time-to-hire, score distribution). |
+| Week 4 | Recruiter productivity tools (batch actions, saved filters, comparison, shortlist), notifications, bonus, tests, Docker, CI/CD. |
+| 07/08/2026 | Project deadline. |
+| From 10/08/2026 | Oral soutenance and live demo. |
 
 ---
 
 ## Presentation Tips (Soutenance)
 
-1. **Demo flow:** Register → Create job → Apply → View matching score → Move in Kanban → Schedule interview → Score interview → Show badges → Show dashboard
-2. **Explain the AI:** "I built a keyword-matching algorithm in PHP that parses the CV and compares it to the job's tech stack. It runs as a queued job for performance. No external API, 100% controllable."
-3. **Show the code:** Have `MatchingService.php`, a Policy, and a FormRequest ready to show
+1. **Demo flow:** Register (recruiter) → Create job → Apply (as candidate, upload CV) → View matching score + found/missing keywords → Move in Kanban → Schedule interview → Score interview → Show badges as recruiter screening signals → Show dashboard (funnel, time-to-hire, score distribution) → Show productivity tools (batch actions, saved filter, candidate comparison, shortlist + export).
+2. **Explain the "AI":** "I built an AI-powered matching engine with the `laravel/ai` SDK using Groq: it scores the candidate's CV against the job's tech stack and returns which keywords were found or missing, so the recruiter gets a transparent score breakdown. It runs as a queued job; the AI response is stored for fast reads."
+3. **Show the code:** Have `MatchingService.php`, a Policy, a FormRequest, and the `ApplicationResource` (with keyword detail) ready to show.
 4. **Mention trade-offs:** "I chose comma-separated keywords for tech_stack to keep it simple. In production, I'd use a pivot table with a `technologies` table."
-5. **Docker demo:** `docker-compose up -d` → app running, show it works
-6. **CI demo:** Push a commit, show the green check on GitHub
+5. **Docker demo:** `docker-compose up -d` → app running, show it works.
+6. **CI demo:** Push a commit, show the green check on GitHub.
