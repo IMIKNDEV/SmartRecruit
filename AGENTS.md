@@ -168,6 +168,9 @@ SmartRecruit answers this by offering a web platform designed first and foremost
 8. create_interviews_table
 9. create_badges_table
 10. create_saved_filters_table (recruiter saved filter combinations)
+11. create_application_analysis_table (stores matching score + keywords separately)
+12. create_agent_conversations_table (agent conversation sessions)
+13. create_agent_conversation_messages_table (messages within a conversation)
 ```
 
 **CRITICAL NAMING:** The job offers table MUST be named `job_offers` (not `jobs`) because Laravel already uses a `jobs` table for the queue system. This is a common mistake.
@@ -233,9 +236,6 @@ CREATE TABLE applications (
     job_offer_id BIGINT UNSIGNED NOT NULL,
     cv_path VARCHAR(255) NOT NULL COMMENT 'Relative path: cvs/{user_id}/{filename}.pdf',
     cover_letter TEXT NOT NULL,
-    matching_score DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT 'Score 0.00-100.00',
-    matched_keywords JSON NULL COMMENT 'Keywords found in CV: ["PHP","Laravel"]',
-    missing_keywords JSON NULL COMMENT 'Keywords not found in CV: ["Docker","Redis"]',
     tags JSON NULL COMMENT 'Predefined recruiter tags: ["prioritaire","a_relancer"]',
     status ENUM('received', 'interview', 'accepted', 'refused') NOT NULL DEFAULT 'received',
     notes TEXT NULL COMMENT 'Internal recruiter notes',
@@ -246,7 +246,6 @@ CREATE TABLE applications (
     INDEX idx_applications_candidate (candidate_id),
     INDEX idx_applications_job (job_offer_id),
     INDEX idx_applications_status (status),
-    INDEX idx_applications_score (matching_score),
     CONSTRAINT fk_applications_candidate FOREIGN KEY (candidate_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_applications_job FOREIGN KEY (job_offer_id) REFERENCES job_offers(id) ON DELETE CASCADE
 );
@@ -254,8 +253,7 @@ CREATE TABLE applications (
 
 **Notes:**
 - `UNIQUE KEY (candidate_id, job_offer_id)` — prevents duplicate applications
-- `matching_score` is calculated at upload time, NOT real-time
-- `matched_keywords` / `missing_keywords` store the transparent keyword detail (recruiter-facing)
+- Matching score + found/missing keywords are stored in the separate `application_analysis` table, NOT on the application itself
 - `tags` holds the predefined quick tags (à relancer, prioritaire, réserve, entretien planifié)
 - `status` enum values: `received` → `interview` → `accepted` | `refused`
 - `cv_path` stores relative path, file stored on `public` disk
@@ -326,6 +324,72 @@ CREATE TABLE saved_filters (
 - One recruiter can store several named filter combinations
 - `criteria` is a JSON blob of the filter fields accepted by the applications listing
 
+### Table: `application_analysis`
+
+```sql
+CREATE TABLE application_analysis (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    application_id BIGINT UNSIGNED NOT NULL,
+    matching_score DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT 'Score 0.00-100.00',
+    matched_keywords JSON NULL COMMENT 'Keywords found in CV: ["PHP","Laravel"]',
+    missing_keywords JSON NULL COMMENT 'Keywords not found in CV: ["Docker","Redis"]',
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    UNIQUE KEY unique_analysis (application_id),
+    INDEX idx_analysis_score (matching_score),
+    CONSTRAINT fk_analysis_application FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+);
+```
+
+**Notes:**
+- One-to-one with applications — each application has exactly one analysis row
+- `matching_score` is calculated once at upload time by the `CalculateMatchingScoreJob`, NOT real-time
+- `matched_keywords` / `missing_keywords` store the transparent keyword detail (recruiter-facing)
+- `UNIQUE KEY (application_id)` — only one analysis per application
+
+### Table: `agent_conversations`
+
+```sql
+CREATE TABLE agent_conversations (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT 'The user who owns this conversation',
+    context_type VARCHAR(50) NOT NULL COMMENT 'Polymorphic: matching, interview_questions, general',
+    context_id BIGINT UNSIGNED NULL COMMENT 'ID of the related entity (application_id, interview_id, etc.)',
+    status ENUM('active', 'archived') NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    INDEX idx_agent_conv_user (user_id),
+    INDEX idx_agent_conv_context (context_type, context_id),
+    CONSTRAINT fk_agent_conv_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+```
+
+**Notes:**
+- A conversation groups messages between the user and the AI agent
+- `context_type` + `context_id` provide a polymorphic link to the entity the conversation is about (e.g., an application for matching, an interview for question generation)
+- `context_type` values: `matching`, `interview_questions`, `general`
+
+### Table: `agent_conversation_messages`
+
+```sql
+CREATE TABLE agent_conversation_messages (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    agent_conversation_id BIGINT UNSIGNED NOT NULL,
+    role ENUM('user', 'assistant', 'system') NOT NULL,
+    content TEXT NOT NULL,
+    metadata JSON NULL COMMENT 'Optional structured data (e.g., score breakdown, generated questions)',
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    INDEX idx_agent_msg_conversation (agent_conversation_id),
+    CONSTRAINT fk_agent_msg_conversation FOREIGN KEY (agent_conversation_id) REFERENCES agent_conversations(id) ON DELETE CASCADE
+);
+```
+
+**Notes:**
+- `role` identifies who sent the message: `user` (the recruiter/candidate), `assistant` (the AI agent), `system` (instructions/context)
+- `metadata` stores structured data returned by the agent alongside natural language (e.g., `{ "score": 75, "matched_keywords": ["PHP", "Laravel"] }`)
+- Messages are ordered by `created_at` ASC to reconstruct the conversation thread
+
 ---
 
 ## Eloquent Relationships
@@ -358,6 +422,12 @@ class User extends Authenticatable
     public function savedFilters(): HasMany
     {
         return $this->hasMany(SavedFilter::class, 'recruiter_id');
+    }
+
+    // A user has many agent conversations
+    public function agentConversations(): HasMany
+    {
+        return $this->hasMany(AgentConversation::class);
     }
 
     // Helper: is recruiter?
@@ -417,16 +487,12 @@ class Application extends Model
 
     protected $fillable = [
         'candidate_id', 'job_offer_id', 'cv_path', 'cover_letter',
-        'matching_score', 'matched_keywords', 'missing_keywords', 'tags',
-        'status', 'notes', 'comments',
+        'tags', 'status', 'notes', 'comments',
     ];
 
     protected function casts(): array
     {
         return [
-            'matching_score' => 'decimal:2',
-            'matched_keywords' => 'array',
-            'missing_keywords' => 'array',
             'tags' => 'array',
         ];
     }
@@ -454,6 +520,19 @@ class Application extends Model
     {
         return $this->hasOne(Interview::class)->latestOfMany();
     }
+
+    // An application has one analysis (matching score + keywords)
+    public function analysis(): HasOne
+    {
+        return $this->hasOne(ApplicationAnalysis::class);
+    }
+
+    // An application has one agent conversation (for matching)
+    public function agentConversation(): HasOne
+    {
+        return $this->hasOne(AgentConversation::class, 'context_id')
+            ->where('context_type', 'matching');
+    }
 }
 
 // Interview Model
@@ -477,6 +556,13 @@ class Interview extends Model
     public function application(): BelongsTo
     {
         return $this->belongsTo(Application::class);
+    }
+
+    // An interview has one agent conversation (for question generation)
+    public function agentConversation(): HasOne
+    {
+        return $this->hasOne(AgentConversation::class, 'context_id')
+            ->where('context_type', 'interview_questions');
     }
 
     // Calculate average score
@@ -533,6 +619,89 @@ class SavedFilter extends Model
         return $this->belongsTo(User::class, 'recruiter_id');
     }
 }
+
+// ApplicationAnalysis Model
+class ApplicationAnalysis extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'application_id', 'matching_score', 'matched_keywords', 'missing_keywords',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'matching_score' => 'decimal:2',
+            'matched_keywords' => 'array',
+            'missing_keywords' => 'array',
+        ];
+    }
+
+    // An analysis belongs to an application
+    public function application(): BelongsTo
+    {
+        return $this->belongsTo(Application::class);
+    }
+}
+
+// AgentConversation Model
+class AgentConversation extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'user_id', 'context_type', 'context_id', 'status',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'status' => 'string',
+        ];
+    }
+
+    // A conversation belongs to a user
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    // A conversation has many messages
+    public function messages(): HasMany
+    {
+        return $this->hasMany(AgentConversationMessage::class);
+    }
+
+    // Get the related entity (polymorphic)
+    public function context(): MorphTo
+    {
+        return $this->morphTo();
+    }
+}
+
+// AgentConversationMessage Model
+class AgentConversationMessage extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'agent_conversation_id', 'role', 'content', 'metadata',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'metadata' => 'array',
+        ];
+    }
+
+    // A message belongs to a conversation
+    public function conversation(): BelongsTo
+    {
+        return $this->belongsTo(AgentConversation::class, 'agent_conversation_id');
+    }
+}
 ```
 
 ---
@@ -550,6 +719,9 @@ database/migrations/
   2026_07_13_000006_create_interviews_table.php
   2026_07_13_000007_create_badges_table.php
   2026_07_13_000008_create_saved_filters_table.php
+  2026_07_13_000009_create_application_analysis_table.php
+  2026_07_13_000010_create_agent_conversations_table.php
+  2026_07_13_000011_create_agent_conversation_messages_table.php
 ```
 
 ---
@@ -634,6 +806,16 @@ database/migrations/
 
 **PUT /api/interviews/{id}/complete — Request:**
 - `{score_technique: 4, score_communication: 5, score_motivation: 3}`
+
+### Agent Conversations
+
+| Method | Endpoint | Auth | Role | Description | Response |
+|---|---|---|---|---|---|
+| GET | `/api/agent-conversations` | Yes | — | List my conversations | `{data: [...]}` 200 |
+| POST | `/api/agent-conversations` | Yes | — | Create a new conversation | `{data: conversation}` 201 |
+| POST | `/api/applications/{id}/generate-questions` | Yes | recruiter | Generate interview questions via ConversationalAgent | `{data: {questions, conversation_id}}` 200 |
+| GET | `/api/agent-conversations/{id}/messages` | Yes | — | List messages for a conversation | `{data: [...]}` 200 |
+| POST | `/api/agent-conversations/{id}/messages` | Yes | — | Send a message to the agent | `{data: message}` 201 |
 
 ### Dashboard
 
@@ -727,10 +909,13 @@ The compatibility score is produced by an **AI-powered matching engine** built o
    matched_list = result['matched_keywords']   // ["PHP","Laravel","MySQL"]
    missing_list = result['missing_keywords']   // ["Docker","Git"]
 
-5. STORE the detail (transparency for the recruiter)
-   application.matching_score = score
-   application.matched_keywords = matched_list
-   application.missing_keywords = missing_list
+5. STORE the detail in the dedicated `application_analysis` table (transparency for the recruiter)
+   ApplicationAnalysis::create([
+       'application_id' => $application->id,
+       'matching_score' => $score,
+       'matched_keywords' => $matched_list,
+       'missing_keywords' => $missing_list,
+   ]);
    // Recruiter sees: "Trouvés : PHP, Laravel, MySQL — Manquants : Docker, Git"
 
 6. PROCESS asynchronously
@@ -811,12 +996,159 @@ class MatchingService
 ```
 
 ### Important Notes
-- The matching runs **once at application upload time** (in the `ApplicationObserver` or in the controller)
-- Score, matched keywords and missing keywords are stored — NOT recalculated on read
-- Use `Queue::job(new CalculateMatchingScoreJob($application))` for async processing
+- The matching runs **once at application upload time** (in the `CalculateMatchingScoreJob`)
+- Score, matched keywords and missing keywords are stored in the `application_analysis` table — NOT recalculated on read
+- Use `Queue::job(new CalculateMatchingScoreJob($application))` for async processing; the job creates the `ApplicationAnalysis` record
 - Return 201 immediately, process the AI score in the background
 - The `MatchingAgent` extends `Laravel\Ai\Agent`; tests use `MatchingAgent::fake([...])` (no real Groq call, no API key needed in CI)
 - If the PDF yields no text (scanned CV), default the score to 0 and store empty lists
+
+---
+
+## Conversational Agent (Interview Questions & General AI)
+
+The `ConversationalAgent` is a reusable AI agent built on the `laravel/ai` SDK (Groq) that powers the **interview question generator** (US-BONUS-02) and any future recruiter-facing AI interaction. Conversations are persisted in the `agent_conversations` and `agent_conversation_messages` tables so the recruiter can revisit previously generated questions.
+
+### Input
+- `job.tech_stack` — comma-separated string: `"PHP, Laravel, MySQL, Docker, Git"`
+- `agent_conversation` — the session context (tracks past messages for follow-up questions)
+
+### Steps
+
+```
+1. CREATE or reuse an agent_conversation for the given context
+   conversation = AgentConversation::firstOrCreate([
+       'user_id' => auth()->id(),
+       'context_type' => 'interview_questions',
+       'context_id' => $interview->id,
+   ]);
+
+2. STORE the user prompt as a message
+   AgentConversationMessage::create([
+       'agent_conversation_id' => $conversation->id,
+       'role' => 'user',
+       'content' => "Generate 3-5 interview questions for: PHP, Laravel, MySQL",
+   ]);
+
+3. CALL the AI (Groq) via ConversationalAgent
+   prompt = buildPromptWithHistory($conversation)
+   ai_response = ConversationalAgent::ask($prompt)
+
+4. STORE the AI response as a message
+   AgentConversationMessage::create([
+       'agent_conversation_id' => $conversation->id,
+       'role' => 'assistant',
+       'content' => $ai_response->text,
+       'metadata' => $structuredData,  // optional
+   ]);
+
+5. RETURN the generated content to the caller
+```
+
+### Implementation
+
+```php
+// app/Agents/ConversationalAgent.php
+
+namespace App\Agents;
+
+use Laravel\Ai\Agent;
+
+class ConversationalAgent extends Agent
+{
+    protected string $driver = 'groq';
+    protected string $model = 'llama-3.3-70b-versatile';
+
+    /**
+     * Send a prompt and return the response text.
+     * The optional history array contains previous {role, content} pairs.
+     */
+    public function ask(string $prompt, array $history = []): string
+    {
+        $messages = [];
+
+        foreach ($history as $msg) {
+            $messages[] = ['role' => $msg['role'], 'content' => $msg['content']];
+        }
+
+        $messages[] = ['role' => 'user', 'content' => $prompt];
+
+        return $this->withMessages($messages)->prompt($prompt);
+    }
+
+    /**
+     * Generate interview questions from a tech stack.
+     */
+    public function generateQuestions(string $techStack): string
+    {
+        return $this->ask(
+            "Generate 3-5 technical interview questions for a candidate "
+            . "applying to a position requiring: {$techStack}. "
+            . "Tailor the questions to assess hands-on experience, "
+            . "not just theoretical knowledge."
+        );
+    }
+}
+
+// app/Services/QuestionGeneratorService.php
+
+namespace App\Services;
+
+use App\Agents\ConversationalAgent;
+use App\Models\AgentConversation;
+use App\Models\AgentConversationMessage;
+use App\Models\Interview;
+
+class QuestionGeneratorService
+{
+    /**
+     * Generate interview questions and persist the conversation.
+     */
+    public function generate(Interview $interview): string
+    {
+        $job = $interview->application->jobOffer;
+
+        // Find or create a conversation for this interview context
+        $conversation = AgentConversation::firstOrCreate([
+            'user_id' => auth()->id(),
+            'context_type' => 'interview_questions',
+            'context_id' => $interview->id,
+        ]);
+
+        // Build history from previous messages
+        $history = AgentConversationMessage::where('agent_conversation_id', $conversation->id)
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn ($msg) => ['role' => $msg->role, 'content' => $msg->content])
+            ->toArray();
+
+        // Store user prompt
+        AgentConversationMessage::create([
+            'agent_conversation_id' => $conversation->id,
+            'role' => 'user',
+            'content' => "Generate interview questions for tech stack: {$job->tech_stack}",
+        ]);
+
+        // Call the AI
+        $questions = (new ConversationalAgent)->generateQuestions($job->tech_stack);
+
+        // Store AI response
+        AgentConversationMessage::create([
+            'agent_conversation_id' => $conversation->id,
+            'role' => 'assistant',
+            'content' => $questions,
+        ]);
+
+        return $questions;
+    }
+}
+```
+
+### Important Notes
+- Conversation history is persisted so recruiters can ask follow-up or clarification questions
+- The `ConversationalAgent` is context-agnostic and can be reused for matching explanations, general Q&A, etc.
+- For interview question generation specifically, the helper method `generateQuestions()` builds the domain-specific prompt
+- Conversations are scoped by `context_type` + `context_id` to avoid mixing contexts (e.g., matching vs questions)
 
 ---
 
@@ -1010,6 +1342,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/interviews/{id}/complete', [InterviewController::class, 'complete']);
     Route::put('/interviews/{id}/cancel', [InterviewController::class, 'cancel']);
     Route::get('/applications/{id}/interviews', [InterviewController::class, 'index']);
+
+    // Agent conversation routes
+    Route::get('/agent-conversations', [AgentConversationController::class, 'index']);
+    Route::post('/agent-conversations', [AgentConversationController::class, 'store']);
+    Route::get('/agent-conversations/{id}/messages', [AgentConversationController::class, 'messages']);
+    Route::post('/agent-conversations/{id}/messages', [AgentConversationController::class, 'sendMessage']);
+    Route::post('/applications/{id}/generate-questions', [AgentConversationController::class, 'generateQuestions']);
 });
 ```
 
@@ -1031,7 +1370,7 @@ public function show(Application $application)
 {
     $this->authorize('view', $application);
 
-    return new ApplicationResource($application->load(['candidate', 'jobOffer', 'interviews']));
+    return new ApplicationResource($application->load(['candidate', 'jobOffer', 'interviews', 'analysis']));
 }
 ```
 
@@ -1242,6 +1581,29 @@ class StoreSavedFilterRequest extends FormRequest
     }
 }
 
+// app/Http/Requests/StoreAgentConversationRequest.php
+class StoreAgentConversationRequest extends FormRequest
+{
+    public function rules(): array
+    {
+        return [
+            'context_type' => ['required', 'string', 'in:matching,interview_questions,general'],
+            'context_id' => ['nullable', 'integer', 'exists:applications,id'],
+        ];
+    }
+}
+
+// app/Http/Requests/SendAgentMessageRequest.php
+class SendAgentMessageRequest extends FormRequest
+{
+    public function rules(): array
+    {
+        return [
+            'content' => ['required', 'string', 'max:5000'],
+        ];
+    }
+}
+
 // app/Http/Requests/StoreInterviewRequest.php
 class StoreInterviewRequest extends FormRequest
 {
@@ -1304,9 +1666,9 @@ class ApplicationResource extends JsonResource
 
         return [
             'id' => $this->id,
-            'matching_score' => $this->matching_score,
-            'matched_keywords' => $this->matched_keywords,
-            'missing_keywords' => $this->missing_keywords,
+            'matching_score' => $this->whenLoaded('analysis', $this->analysis?->matching_score),
+            'matched_keywords' => $this->whenLoaded('analysis', $this->analysis?->matched_keywords),
+            'missing_keywords' => $this->whenLoaded('analysis', $this->analysis?->missing_keywords),
             'tags' => $this->tags,
             'status' => $this->status,
             'cv_path' => $this->cv_path,
@@ -1316,6 +1678,7 @@ class ApplicationResource extends JsonResource
             'candidate' => new UserResource($this->whenLoaded('candidate')),
             'job_offer' => new JobOfferResource($this->whenLoaded('jobOffer')),
             'interviews' => InterviewResource::collection($this->whenLoaded('interviews')),
+            'analysis' => new ApplicationAnalysisResource($this->whenLoaded('analysis')),
             'created_at' => $this->created_at->toISOString(),
         ];
     }
@@ -1382,6 +1745,19 @@ class SavedFilterResource extends JsonResource
         ];
     }
 }
+
+// app/Http/Resources/ApplicationAnalysisResource.php
+class ApplicationAnalysisResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'matching_score' => $this->matching_score,
+            'matched_keywords' => $this->matched_keywords,
+            'missing_keywords' => $this->missing_keywords,
+        ];
+    }
+}
 ```
 
 ---
@@ -1403,7 +1779,8 @@ app/
 │   │       ├── DashboardController.php
 │   │       ├── SavedFilterController.php
 │   │       ├── ShortlistController.php
-│   │       └── ReplyTemplateController.php
+│   │       ├── ReplyTemplateController.php
+│   │       └── AgentConversationController.php
 │   ├── Middleware/
 │   │   └── EnsureUserHasRole.php
 │   ├── Requests/
@@ -1420,7 +1797,9 @@ app/
 │   │   ├── UpdateSavedFilterRequest.php
 │   │   ├── UpdateApplicationNotesRequest.php
 │   │   ├── StoreInterviewRequest.php
-│   │   └── CompleteInterviewRequest.php
+│   │   ├── CompleteInterviewRequest.php
+│   │   ├── StoreAgentConversationRequest.php
+│   │   └── SendAgentMessageRequest.php
 │   └── Resources/
 │       ├── UserResource.php
 │       ├── JobOfferResource.php
@@ -1429,9 +1808,11 @@ app/
 │       ├── BadgeResource.php
 │       └── SavedFilterResource.php
 ├── Jobs/
-│   └── CalculateMatchingScoreJob.php
+│   ├── CalculateMatchingScoreJob.php
+│   └── GenerateInterviewQuestionsJob.php
 ├── Agents/
-│   └── MatchingAgent.php                  # laravel/ai agent (Groq) — scores CV vs job stack
+│   ├── MatchingAgent.php                  # laravel/ai agent (Groq) — scores CV vs job stack
+│   └── ConversationalAgent.php           # laravel/ai agent (Groq) — interview questions, general Q&A
 ├── Mail/
 │   └── ApplicationStatusMail.php
 ├── Models/
@@ -1440,9 +1821,12 @@ app/
 │   ├── Application.php
 │   ├── Interview.php
 │   ├── Badge.php
-│   └── SavedFilter.php
+│   ├── SavedFilter.php
+│   ├── ApplicationAnalysis.php
+│   ├── AgentConversation.php
+│   └── AgentConversationMessage.php
 ├── Observers/
-│   ├── ApplicationObserver.php            # auto-calculate score + keywords on created
+│   ├── ApplicationObserver.php            # dispatch score + badge jobs on created
 │   └── InterviewObserver.php              # auto-award badge on completed
 ├── Policies/
 │   ├── JobOfferPolicy.php
@@ -1468,7 +1852,10 @@ database/
 │   ├── ApplicationFactory.php
 │   ├── InterviewFactory.php
 │   ├── BadgeFactory.php
-│   └── SavedFilterFactory.php
+│   ├── SavedFilterFactory.php
+│   ├── ApplicationAnalysisFactory.php
+│   ├── AgentConversationFactory.php
+│   └── AgentConversationMessageFactory.php
 ├── migrations/
 │   ├── 0001_01_01_000000_create_users_table.php      # MODIFIED
 │   ├── 0001_01_01_000001_create_cache_table.php       # exists
@@ -1478,7 +1865,10 @@ database/
 │   ├── 2026_07_13_000005_create_applications_table.php
 │   ├── 2026_07_13_000006_create_interviews_table.php
 │   ├── 2026_07_13_000007_create_badges_table.php
-│   └── 2026_07_13_000008_create_saved_filters_table.php
+│   ├── 2026_07_13_000008_create_saved_filters_table.php
+│   ├── 2026_07_13_000009_create_application_analysis_table.php
+│   ├── 2026_07_13_000010_create_agent_conversations_table.php
+│   └── 2026_07_13_000011_create_agent_conversation_messages_table.php
 └── seeders/
     └── DatabaseSeeder.php                 # MODIFIED: seed test data
 
@@ -1547,6 +1937,7 @@ tests/
 │   ├── MatchingServiceTest.php
 │   ├── BadgeServiceTest.php
 │   ├── SuggestionServiceTest.php
+│   ├── QuestionGeneratorServiceTest.php
 │   └── Models/
 │       └── ApplicationTest.php
 └── TestCase.php
@@ -1777,7 +2168,7 @@ class BadgeService
         $this->awardIfNotExists($candidate, 'cv_complet');
 
         // High Match: awarded if score > 80
-        if ($application->matching_score > 80) {
+        if ($application->analysis && $application->analysis->matching_score > 80) {
             $this->awardIfNotExists($candidate, 'high_match');
         }
     }
@@ -2055,7 +2446,7 @@ jobs:
 
 ### 5. Matching Score Calculation
 **WRONG:** Calculating score on every request (expensive, requires PDF parsing)
-**RIGHT:** Calculate once at upload time, store score + matched/missing keywords in `applications`.
+**RIGHT:** Calculate once at upload time, store score + matched/missing keywords in `application_analysis` table (one-to-one with applications).
 
 ### 6. File Storage in Tests
 **WRONG:** Writing real files during tests
@@ -2121,33 +2512,36 @@ STEP 2:  php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServicePr
 STEP 3:  Create users migration modification (add role, avatar columns)
 STEP 4:  Update User model (HasApiTokens, role, avatar, relationships)
 STEP 5:  Create job_offers migration + model + factory
-STEP 6:  Create applications migration (add matched_keywords, missing_keywords, tags) + model + factory
+STEP 6:  Create applications migration (tags, status, notes) + model + factory
 STEP 7:  Create interviews migration + model + factory
 STEP 8:  Create badges migration + model + factory
 STEP 9:  Create saved_filters migration + model + factory
-STEP 10: php artisan migrate
-STEP 11: Create Form Requests (Register, Login, Store, Update, Apply, Status, Batch, Tags, SavedFilter)
-STEP 12: Create API Resources (User, JobOffer, Application, Interview, Badge, SavedFilter)
-STEP 13: Create Policies (JobOfferPolicy, ApplicationPolicy with batch scope)
-STEP 14: Create Middleware (EnsureUserHasRole)
-STEP 15: Register middleware + API routes in bootstrap/app.php
-STEP 16: Create AuthController (register, login, logout, profile)
-STEP 17: Create JobOfferController (CRUD)
-STEP 18: Create MatchingAgent (laravel/ai, Groq) + MatchingService + CalculateMatchingScoreJob (store score + keywords)
-STEP 19: Create ApplicationController (apply, status, batch, notes, tags, byJob, compare, suggestions)
-STEP 20: Create InterviewController (store, complete, cancel)
-STEP 21: Create DashboardController (funnel, time-to-hire, score distribution, activity, comparison, pending)
-STEP 22: Create SavedFilterController + ShortlistController + ReplyTemplateController
-STEP 23: Create BadgeService + SuggestionService + ShortlistService + observers
-STEP 24: Create ApplicationStatusMail (Mailable)
-STEP 25: Write Feature tests (Auth, JobOffer, Application, ApplicationBatch, SavedFilter, Shortlist, Interview, Dashboard)
-STEP 26: Write Unit tests (MatchingService, BadgeService, SuggestionService)
-STEP 27: Create Blade views (dashboard analytics, job-offers, applications/kanban+compare+shortlist, saved-filters, auth, profiles)
-STEP 28: Create Dockerfile + docker-compose.yml
-STEP 29: Create .github/workflows/tests.yml
-STEP 30: Create README.md with installation instructions
-STEP 31: Generate MCD/MLD/Architecture diagrams
-STEP 32: Deploy to Railway/Render
+STEP 10: Create application_analysis migration + model + factory
+STEP 11: Create agent_conversations + agent_conversation_messages migrations + models + factories
+STEP 12: php artisan migrate
+STEP 13: Create Form Requests (Register, Login, Store, Update, Apply, Status, Batch, Tags, SavedFilter)
+STEP 14: Create API Resources (User, JobOffer, Application, Interview, Badge, SavedFilter, ApplicationAnalysis)
+STEP 15: Create Policies (JobOfferPolicy, ApplicationPolicy with batch scope)
+STEP 16: Create Middleware (EnsureUserHasRole)
+STEP 17: Register middleware + API routes in bootstrap/app.php
+STEP 18: Create AuthController (register, login, logout, profile)
+STEP 19: Create JobOfferController (CRUD)
+STEP 20: Create MatchingAgent (laravel/ai, Groq) + MatchingService + CalculateMatchingScoreJob (store score + keywords in application_analysis)
+STEP 21: Create ApplicationController (apply, status, batch, notes, tags, byJob, compare, suggestions)
+STEP 22: Create InterviewController (store, complete, cancel)
+STEP 23: Create ConversationalAgent + QuestionGeneratorService + AgentConversationController
+STEP 24: Create DashboardController (funnel, time-to-hire, score distribution, activity, comparison, pending)
+STEP 25: Create SavedFilterController + ShortlistController + ReplyTemplateController
+STEP 26: Create BadgeService + SuggestionService + ShortlistService + observers
+STEP 27: Create ApplicationStatusMail (Mailable)
+STEP 28: Write Feature tests (Auth, JobOffer, Application, ApplicationBatch, SavedFilter, Shortlist, Interview, Dashboard, AgentConversations)
+STEP 29: Write Unit tests (MatchingService, BadgeService, SuggestionService, QuestionGeneratorService)
+STEP 30: Create Blade views (dashboard analytics, job-offers, applications/kanban+compare+shortlist, saved-filters, auth, profiles)
+STEP 31: Create Dockerfile + docker-compose.yml
+STEP 32: Create .github/workflows/tests.yml
+STEP 33: Create README.md with installation instructions
+STEP 34: Generate MCD/MLD/Architecture diagrams
+STEP 35: Deploy to Railway/Render
 ```
 
 ---
