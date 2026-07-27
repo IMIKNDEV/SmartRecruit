@@ -26,7 +26,7 @@ Une entreprise de recrutement basée à Agadir gère aujourd'hui l'intégralité
 
 **Problématique :** Comment centraliser et automatiser le processus de recrutement — de la publication d'une offre jusqu'à la décision finale — tout en donnant aux recruteurs de vrais outils de pilotage et de décision objective, sans dépendre d'outils ou d'API externes payantes ?
 
-SmartRecruit répond à cette problématique en proposant une plateforme web pensée avant tout pour le recruteur : un pipeline visuel type Kanban, un tableau de bord analytique sur la performance du recrutement, des outils de productivité (actions groupées, filtres sauvegardés, comparaison de candidats) et un score de compatibilité candidat/offre calculé automatiquement à l'upload du CV — présenté comme une fonctionnalité "IA", mais reposant sur un algorithme de correspondance par mots-clés 100 % maîtrisé en PHP, sans appel à un service d'intelligence artificielle externe.
+SmartRecruit répond à cette problématique en proposant une plateforme web pensée avant tout pour le recruteur : un pipeline visuel type Kanban, un tableau de bord analytique sur la performance du recrutement, des outils de productivité (actions groupées, filtres sauvegardés, comparaison de candidats) et un score de compatibilité candidat/offre calculé automatiquement à l'upload du CV par un moteur de matching propulsé par intelligence artificielle (API Groq), offrant une évaluation précise et transparente aux recruteurs.
 
 ## 2. Objectifs du Projet
 
@@ -80,22 +80,30 @@ Cœur de la refonte orientée recruteur : donner une vision claire de la perform
 ### 3.5 Fonctionnalités bonus
 
 - Badges automatiques affichés côté recruteur sur la fiche candidature : "CV complet", "Match élevé" (score > 80), "Entretien réussi" (moyenne d'évaluation > 3) — pensés comme des signaux de tri rapide plutôt que comme une récompense visible du candidat ;
-- Générateur de questions d'entretien à partir des mots-clés de la stack technique (règles simples, sans IA externe).
+- Générateur de questions d'entretien à partir des mots-clés de la stack technique (générées par intelligence artificielle via l'API Groq).
 
 Le classement (leaderboard) et l'export PDF du profil candidat, initialement prévus comme fonctionnalités candidat, sont retirés du périmètre afin de concentrer l'effort sur les outils recruteur ci-dessus.
 
-## 4. Le Moteur de Matching ("IA" maison)
+## 4. Le Moteur de Matching (IA — API Groq)
 
-Le score de compatibilité repose sur un algorithme de correspondance par mots-clés, calculé une seule fois à l'upload du CV et stocké en base (jamais recalculé à la lecture, pour des raisons de performance). Le détail du calcul est conservé afin d'alimenter la transparence du score côté recruteur :
+Le score de compatibilité est produit par un moteur de matching intelligent basé sur le SDK `laravel/ai` (driver Groq). L'IA reçoit la stack technique de l'offre ainsi que le texte extrait du CV, et retourne un score (0–100) accompagné de la liste des mots-clés trouvés et manquants — garantissant une transparence totale pour le recruteur. Le calcul est effectué une seule fois à l'upload du CV, de manière asynchrone, et le résultat est stocké en base pour être consulté immédiatement par la suite.
 
-1. Extraction des mots-clés de l'offre depuis le champ tech_stack (liste séparée par virgules) ;
-2. Extraction du texte du CV (parsing du PDF) ;
-3. Comparaison insensible à la casse : chaque mot-clé recherché dans le texte du CV ;
-4. Score = (nombre de mots-clés trouvés / nombre total de mots-clés) × 100, arrondi à 2 décimales ;
-5. Les listes de mots-clés trouvés et manquants sont stockées avec le score, pour affichage recruteur ("Trouvés : PHP, Laravel, MySQL — Manquants : Docker, Redis") ;
-6. Traitement asynchrone via une file d'attente (Job) pour ne pas bloquer la réponse à la candidature.
+### Fonctionnement
 
-Ce choix garantit un fonctionnement 100 % autonome, explicable et gratuit (aucune dépendance à une API d'IA externe). La transparence du détail du score (mots-clés trouvés / manquants) transforme le matching d'un simple chiffre en véritable aide à la décision pour le recruteur.
+1. **Extraction des mots-clés de l'offre** — depuis le champ `tech_stack` (liste séparée par virgules) ;
+2. **Extraction du texte du CV** — parsing local du PDF (bibliothèque Smalot PdfParser) pour alimenter le contexte de l'IA ;
+3. **Appel à l'IA (Groq)** via le SDK `laravel/ai` — le prompt demande de noter le candidat de 0 à 100 et de lister les mots-clés requis trouvés et manquants dans le CV, en retournant un JSON structuré : `{score, matched_keywords, missing_keywords}` ;
+4. **Parsing de la réponse** — le score, les mots-clés trouvés et manquants sont extraits ;
+5. **Stockage** — les résultats sont persistés dans la table `application_analysis` liée à la candidature, pour affichage recruteur ("Trouvés : PHP, Laravel, MySQL — Manquants : Docker, Git") ;
+6. **Traitement asynchrone** — via un Job (`CalculateMatchingScoreJob`) pour ne pas bloquer la réponse HTTP 201 de la candidature.
+
+### Transparence
+
+Le détail du score (mots-clés trouvés / manquants) est conservé et affiché côté recruteur, transformant le matching d'un simple chiffre opaque en une véritable aide à la décision. Si le CV ne contient pas de texte exploitable (CV scanné), le score par défaut est de 0.
+
+### Générateur de questions d'entretien
+
+Le générateur de questions d'entretien utilise le même SDK `laravel/ai` (Groq) via un `ConversationalAgent`. À partir de la stack technique de l'offre, l'IA génère 3 à 5 questions techniques adaptées au poste. Les conversations sont persistées dans les tables `agent_conversations` et `agent_conversation_messages` pour permettre au recruteur de retrouver l'historique des questions générées.
 
 ## 5. Spécifications Techniques
 
@@ -108,6 +116,7 @@ Ce choix garantit un fonctionnement 100 % autonome, explicable et gratuit (aucun
 | Frontend                 | Blade + Vite            | Vite 8           |
 | CSS                      | Tailwind CSS            | 4.x              |
 | Authentification API     | Laravel Sanctum         | Token Bearer     |
+| Moteur de matching IA   | laravel/ai SDK (Groq)   | —                |
 | Tests                    | PHPUnit / Pest          | PHPUnit 12.5+    |
 | Conteneurisation         | Docker + docker-compose | PHP 8.3          |
 | File d'attente           | Database driver         | Jobs asynchrones |
@@ -116,7 +125,7 @@ Ce choix garantit un fonctionnement 100 % autonome, explicable et gratuit (aucun
 
 ### 5.1 Modèle de données (extrait)
 
-Cinq tables métier, en plus des tables Laravel par défaut : users (rôle, avatar), job_offers (soft delete), applications (contrainte d'unicité candidat/offre, score, mots-clés trouvés/manquants, tags, statut), interviews (scores 1-5 par critère), badges (unicité candidat/type). L'ordre de création respecte les clés étrangères : users → job_offers → applications → interviews → badges. Les filtres sauvegardés du recruteur sont stockés dans une table dédiée (saved_filters) rattachée à l'utilisateur recruteur.
+Neuf tables métier, en plus des tables Laravel par défaut : users (rôle, avatar), job_offers (soft delete), applications (contrainte d'unicité candidat/offre, tags, statut, notes), interviews (scores 1-5 par critère), badges (unicité candidat/type), saved_filters (critères JSON), application_analysis (score, mots-clés trouvés/manquants, forces, lacunes, expérience, niveau d'éducation, langues, recommandation), agent_conversations (lié à l'utilisateur) et agent_conversation_messages (messages de la conversation). L'ordre de création respecte les clés étrangères : users → job_offers → applications → interviews → badges → saved_filters → application_analysis → agent_conversations → agent_conversation_messages.
 
 ### 5.2 Sécurité et autorisations
 
