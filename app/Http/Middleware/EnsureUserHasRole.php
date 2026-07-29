@@ -9,11 +9,11 @@ class EnsureUserHasRole
 {
     public function handle(Request $request, Closure $next, string ...$roles)
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        if (!in_array(auth()->user()->role, $roles)) {
+        if (! in_array(auth()->user()->role, $roles)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
