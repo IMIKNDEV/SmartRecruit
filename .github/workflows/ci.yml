@@ -47,5 +47,8 @@ jobs:
       - name: Test PHPStan
         run: ./vendor/bin/phpstan analyse
 
+      - name: Check code style (Pint)
+        run: ./vendor/bin/pint --test
+
       # - name: Test PHPUnit
       #   run: ./vendor/bin/phpunit
