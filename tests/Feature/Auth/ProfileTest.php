@@ -65,6 +65,8 @@ it('cannot update role', function () {
 });
 
 it('rejects unauthenticated profile access', function () {
+    $this->app['auth']->forgetGuards();
+
     $response = $this->getJson('/api/user');
 
     $response->assertStatus(401);

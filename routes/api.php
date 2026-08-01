@@ -1,5 +1,14 @@
 <?php
 
+use App\Http\Controllers\Api\AgentConversationController;
+use App\Http\Controllers\Api\ApplicationController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\InterviewController;
+use App\Http\Controllers\Api\JobOfferController;
+use App\Http\Controllers\Api\ReplyTemplateController;
+use App\Http\Controllers\Api\SavedFilterController;
+use App\Http\Controllers\Api\ShortlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register']);
