@@ -17,7 +17,7 @@ describe('BadgeService', function () {
             'job_offer_id' => $job->id,
         ]);
 
-        $service = new BadgeService();
+        $service = new BadgeService;
         $service->checkAndAward($application);
 
         $this->assertDatabaseHas('badges', [
@@ -38,7 +38,7 @@ describe('BadgeService', function () {
             'matching_score' => 85.0,
         ]);
 
-        $service = new BadgeService();
+        $service = new BadgeService;
         $service->checkAndAward($application);
 
         $this->assertDatabaseHas('badges', [
@@ -59,7 +59,7 @@ describe('BadgeService', function () {
             'matching_score' => 80.0,
         ]);
 
-        $service = new BadgeService();
+        $service = new BadgeService;
         $service->checkAndAward($application);
 
         $this->assertDatabaseMissing('badges', [
@@ -80,7 +80,7 @@ describe('BadgeService', function () {
             'type' => 'cv_complet',
         ]);
 
-        $service = new BadgeService();
+        $service = new BadgeService;
         $service->checkAndAward($application);
 
         $this->assertDatabaseCount('badges', 1);
@@ -102,7 +102,7 @@ describe('BadgeService', function () {
             'score_motivation' => 3,
         ]);
 
-        $service = new BadgeService();
+        $service = new BadgeService;
         $service->checkInterviewBadge($application);
 
         $this->assertDatabaseHas('badges', [
@@ -127,7 +127,7 @@ describe('BadgeService', function () {
             'score_motivation' => 2,
         ]);
 
-        $service = new BadgeService();
+        $service = new BadgeService;
         $service->checkInterviewBadge($application);
 
         $this->assertDatabaseMissing('badges', [

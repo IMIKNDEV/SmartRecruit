@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\CalculateMatchingScoreJob;
 use App\Models\Application;
 use App\Models\JobOffer;
 use App\Models\User;
@@ -72,7 +73,7 @@ describe('candidate applies', function () {
             'cover_letter' => 'I am very interested in this position and believe my skills match your requirements perfectly.',
         ]);
 
-        Queue::assertPushed(App\Jobs\CalculateMatchingScoreJob::class);
+        Queue::assertPushed(CalculateMatchingScoreJob::class);
     });
 
     it('recruiter cannot apply to their own job', function () {

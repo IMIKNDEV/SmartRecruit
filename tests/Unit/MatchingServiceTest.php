@@ -3,6 +3,7 @@
 use App\Agents\MatchingAgent;
 use App\Models\Application;
 use App\Models\JobOffer;
+use App\Services\MatchingService;
 use Illuminate\Support\Facades\Storage;
 
 describe('MatchingService', function () {
@@ -13,12 +14,12 @@ describe('MatchingService', function () {
             'missing_keywords' => ['Docker'],
         ]);
 
-        $service = new App\Services\MatchingService();
+        $service = new MatchingService;
         $job = JobOffer::factory()->create(['tech_stack' => 'PHP, Laravel, MySQL, Docker']);
         $application = Application::factory()->create(['job_offer_id' => $job->id]);
 
         Storage::fake('public');
-        Storage::put('cvs/' . $application->candidate_id . '/test_cv.pdf', 'PHP Laravel MySQL developer');
+        Storage::put('cvs/'.$application->candidate_id.'/test_cv.pdf', 'PHP Laravel MySQL developer');
 
         $result = $service->calculateScore($application);
 
@@ -30,12 +31,12 @@ describe('MatchingService', function () {
     it('returns 0 and empty lists when the CV has no extractable text', function () {
         MatchingAgent::fake();
 
-        $service = new App\Services\MatchingService();
+        $service = new MatchingService;
         $job = JobOffer::factory()->create(['tech_stack' => 'Python, Django, React']);
         $application = Application::factory()->create(['job_offer_id' => $job->id]);
 
         Storage::fake('public');
-        Storage::put('cvs/' . $application->candidate_id . '/test_cv.pdf', '');
+        Storage::put('cvs/'.$application->candidate_id.'/test_cv.pdf', '');
 
         $result = $service->calculateScore($application);
 

@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Sanctum\HasApiTokens;
 
 describe('User', function () {
     it('determines if user is recruiter', function () {
@@ -30,32 +32,32 @@ describe('User', function () {
 
     it('has many job offers as recruiter', function () {
         $user = User::factory()->recruiter()->create();
-        expect($user->jobOffers())->toBeInstanceOf(Illuminate\Database\Eloquent\Relations\HasMany::class);
+        expect($user->jobOffers())->toBeInstanceOf(HasMany::class);
     });
 
     it('has many applications as candidate', function () {
         $user = User::factory()->candidate()->create();
-        expect($user->applications())->toBeInstanceOf(Illuminate\Database\Eloquent\Relations\HasMany::class);
+        expect($user->applications())->toBeInstanceOf(HasMany::class);
     });
 
     it('has many badges', function () {
         $user = User::factory()->candidate()->create();
-        expect($user->badges())->toBeInstanceOf(Illuminate\Database\Eloquent\Relations\HasMany::class);
+        expect($user->badges())->toBeInstanceOf(HasMany::class);
     });
 
     it('has many saved filters', function () {
         $user = User::factory()->recruiter()->create();
-        expect($user->savedFilters())->toBeInstanceOf(Illuminate\Database\Eloquent\Relations\HasMany::class);
+        expect($user->savedFilters())->toBeInstanceOf(HasMany::class);
     });
 
     it('has many agent conversations', function () {
         $user = User::factory()->create();
-        expect($user->agentConversations())->toBeInstanceOf(Illuminate\Database\Eloquent\Relations\HasMany::class);
+        expect($user->agentConversations())->toBeInstanceOf(HasMany::class);
     });
 
     it('uses HasApiTokens trait', function () {
         $user = User::factory()->create();
         $traits = class_uses_recursive($user);
-        expect($traits)->toContain(Laravel\Sanctum\HasApiTokens::class);
+        expect($traits)->toContain(HasApiTokens::class);
     });
 });
