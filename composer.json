@@ -7,6 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "knuckleswtf/scribe": "^5.11",
         "laravel/ai": "^0.10.1",
         "laravel/framework": "^13.8",
         "laravel/sanctum": "^4.3",
@@ -14,6 +15,7 @@
         "smalot/pdfparser": "^2.12"
     },
     "require-dev": {
+        "barryvdh/laravel-debugbar": "^4.4",
         "fakerphp/faker": "^1.23",
         "larastan/larastan": "^3.10",
         "laravel/pail": "^1.2.5",
@@ -55,6 +57,9 @@
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"
+        ],
+        "docs": [
+            "@php artisan scribe:generate"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
