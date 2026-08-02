@@ -9,9 +9,11 @@ use Illuminate\Support\Facades\Storage;
 describe('MatchingService', function () {
     it('calculates matching score and keyword detail via the AI engine', function () {
         MatchingAgent::fake([
-            'score' => 75.0,
-            'matched_keywords' => ['PHP', 'Laravel', 'MySQL'],
-            'missing_keywords' => ['Docker'],
+            [
+                'score' => 75.0,
+                'matched_keywords' => ['PHP', 'Laravel', 'MySQL'],
+                'missing_keywords' => ['Docker'],
+            ],
         ]);
 
         $service = new MatchingService;
@@ -19,7 +21,8 @@ describe('MatchingService', function () {
         $application = Application::factory()->create(['job_offer_id' => $job->id]);
 
         Storage::fake('public');
-        Storage::put('cvs/'.$application->candidate_id.'/test_cv.pdf', 'PHP Laravel MySQL developer');
+        Storage::disk('public')->put('cvs/'.$application->candidate_id.'/test_cv.pdf', 'PHP Laravel MySQL developer');
+        $application->update(['cv_path' => 'cvs/'.$application->candidate_id.'/test_cv.pdf']);
 
         $result = $service->calculateScore($application);
 
@@ -36,7 +39,8 @@ describe('MatchingService', function () {
         $application = Application::factory()->create(['job_offer_id' => $job->id]);
 
         Storage::fake('public');
-        Storage::put('cvs/'.$application->candidate_id.'/test_cv.pdf', '');
+        Storage::disk('public')->put('cvs/'.$application->candidate_id.'/test_cv.pdf', '');
+        $application->update(['cv_path' => 'cvs/'.$application->candidate_id.'/test_cv.pdf']);
 
         $result = $service->calculateScore($application);
 

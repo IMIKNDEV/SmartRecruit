@@ -64,7 +64,7 @@ class ApplicationController extends Controller
         }
 
         $applications = $jobOffer->applications()
-            ->with('candidate')
+            ->with(['candidate', 'analysis'])
             ->paginate($request->integer('per_page', 15));
 
         return ApplicationResource::collection($applications);
@@ -73,7 +73,7 @@ class ApplicationController extends Controller
     public function myApplications(Request $request)
     {
         $applications = $request->user()->applications()
-            ->with('jobOffer')
+            ->with(['jobOffer', 'analysis'])
             ->paginate($request->integer('per_page', 15));
 
         return ApplicationResource::collection($applications);
@@ -81,7 +81,7 @@ class ApplicationController extends Controller
 
     public function show(Request $request, int $id)
     {
-        $application = Application::with(['candidate', 'jobOffer'])->findOrFail($id);
+        $application = Application::with(['candidate', 'jobOffer', 'analysis'])->findOrFail($id);
 
         $this->authorize('view', $application);
 
