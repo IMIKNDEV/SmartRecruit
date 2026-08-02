@@ -330,14 +330,22 @@ CREATE TABLE saved_filters (
 CREATE TABLE application_analysis (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     application_id BIGINT UNSIGNED NOT NULL,
+    job_offer_id BIGINT UNSIGNED NOT NULL COMMENT 'Required by migration 2026_07_27_000007',
     matching_score DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT 'Score 0.00-100.00',
     matched_keywords JSON NULL COMMENT 'Keywords found in CV: ["PHP","Laravel"]',
     missing_keywords JSON NULL COMMENT 'Keywords not found in CV: ["Docker","Redis"]',
+    strengths TEXT NULL COMMENT 'Reserved, not used by Sprint 6',
+    gaps TEXT NULL COMMENT 'Reserved, not used by Sprint 6',
+    years_experience TINYINT UNSIGNED NULL COMMENT 'Reserved, not used by Sprint 6',
+    education_level VARCHAR(255) NULL COMMENT 'Reserved, not used by Sprint 6',
+    languages JSON NULL COMMENT 'Reserved, not used by Sprint 6',
+    recommendation TEXT NULL COMMENT 'Reserved, not used by Sprint 6',
     created_at TIMESTAMP NULL,
     updated_at TIMESTAMP NULL,
-    UNIQUE KEY unique_analysis (application_id),
+    INDEX idx_analysis_application (application_id),  -- NOT unique in the real migration
     INDEX idx_analysis_score (matching_score),
-    CONSTRAINT fk_analysis_application FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+    CONSTRAINT fk_analysis_application FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
+    CONSTRAINT fk_analysis_job FOREIGN KEY (job_offer_id) REFERENCES job_offers(id) ON DELETE CASCADE
 );
 ```
 
@@ -345,7 +353,9 @@ CREATE TABLE application_analysis (
 - One-to-one with applications — each application has exactly one analysis row
 - `matching_score` is calculated once at upload time by the `CalculateMatchingScoreJob`, NOT real-time
 - `matched_keywords` / `missing_keywords` store the transparent keyword detail (recruiter-facing)
-- `UNIQUE KEY (application_id)` — only one analysis per application
+- `application_id` has a **plain index** (not unique) — code enforces one-per-application via `ApplicationAnalysis::updateOrCreate(['application_id' => ...])`
+- The table is named `application_analysis` (singular) — the `ApplicationAnalysis` model MUST declare `protected $table = 'application_analysis'` (Eloquent would otherwise pluralize to `application_analyses`)
+- `strengths`…`recommendation` are nullable and reserved for future analysis detail (not used by Sprint 6)
 
 ### Table: `agent_conversations`
 
@@ -625,8 +635,14 @@ class ApplicationAnalysis extends Model
 {
     use HasFactory;
 
+    protected $table = 'application_analysis'; // Eloquent would otherwise pluralize to application_analyses
+
     protected $fillable = [
-        'application_id', 'matching_score', 'matched_keywords', 'missing_keywords',
+        'application_id',
+        'job_offer_id', // NOT NULL column — required on create
+        'matching_score',
+        'matched_keywords',
+        'missing_keywords',
     ];
 
     protected function casts(): array
@@ -929,24 +945,37 @@ The compatibility score is produced by an **AI-powered matching engine** built o
 
 namespace App\Agents;
 
-use Laravel\Ai\Agent;
+use Laravel\Ai\Attributes\Model;
+use Laravel\Ai\Attributes\Provider;
+use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Promptable;
 
-class MatchingAgent extends Agent
+#[Provider('groq')]
+#[Model('llama-3.3-70b-versatile')]
+class MatchingAgent implements Agent
 {
-    protected string $driver = 'groq';
-    protected string $model = 'llama-3.3-70b-versatile';
+    use Promptable;
+
+    public function instructions(): string
+    {
+        return 'You are a recruitment expert. Given a required tech stack and a '
+            . 'candidate CV, score the match from 0 to 100 and list which '
+            . 'keywords were found in the CV and which are missing. Respond '
+            . 'ONLY with strict JSON: {"score": <number>, '
+            . '"matched_keywords": [...], "missing_keywords": [...]}.';
+    }
 
     // Returns structured output: ['score' => int, 'matched_keywords' => [], 'missing_keywords' => []]
     public function score(string $techStack, string $cvText): array
     {
-        return $this->withResponseFormat(['type' => 'json_object'])->prompt(
-            "Required tech stack: {$techStack}\n\n"
-            . "Candidate CV:\n{$cvText}\n\n"
-            . "Score the candidate from 0 to 100 and list which required keywords "
-            . "were found in the CV and which are missing. "
-            . "Respond ONLY with strict JSON: "
-            . "{\"score\": <number>, \"matched_keywords\": [\"...\"], \"missing_keywords\": [\"...\"]}."
-        );
+        $text = trim($this->prompt(
+            "Required tech stack: {$techStack}\n\nCandidate CV:\n{$cvText}\n\n"
+            . 'Score the candidate and list found/missing keywords as JSON.'
+        )->text);
+
+        $text = preg_replace('/^```(?:json)?\s*|\s*```$/', '', $text); // strip code fences
+
+        return json_decode($text, true) ?? [];
     }
 }
 
@@ -956,6 +985,7 @@ namespace App\Services;
 
 use App\Agents\MatchingAgent;
 use App\Models\Application;
+use Illuminate\Support\Facades\Storage;
 use Smalot\PdfParser\Parser;
 
 class MatchingService
@@ -987,10 +1017,23 @@ class MatchingService
 
     protected function extractCvText(string $cvPath): string
     {
-        $fullPath = storage_path('app/public/' . $cvPath);
-        $parser = new Parser();
-        $pdf = $parser->parseFile($fullPath);
-        return $pdf->getText();
+        $disk = Storage::disk('public');
+
+        if (! $disk->exists($cvPath)) { // get() throws FileNotFoundException on a missing file
+            return '';
+        }
+
+        $content = $disk->get($cvPath);
+
+        if (! is_string($content) || trim($content) === '') {
+            return '';
+        }
+
+        try {
+            return (new Parser)->parseContent($content)->getText();
+        } catch (\Exception) {
+            return $content; // plain-text fixture / non-PDF fallback
+        }
     }
 }
 ```
@@ -998,9 +1041,9 @@ class MatchingService
 ### Important Notes
 - The matching runs **once at application upload time** (in the `CalculateMatchingScoreJob`)
 - Score, matched keywords and missing keywords are stored in the `application_analysis` table — NOT recalculated on read
-- Use `Queue::job(new CalculateMatchingScoreJob($application))` for async processing; the job creates the `ApplicationAnalysis` record
+- Dispatch via `CalculateMatchingScoreJob::dispatch($application)` for async processing (already done in `ApplicationController@apply` — no observer); the job creates the `ApplicationAnalysis` record
 - Return 201 immediately, process the AI score in the background
-- The `MatchingAgent` extends `Laravel\Ai\Agent`; tests use `MatchingAgent::fake([...])` (no real Groq call, no API key needed in CI)
+- The `MatchingAgent` implements `Laravel\Ai\Contracts\Agent` + `use Promptable`; provider/model come from `#[Provider('groq')]` / `#[Model('llama-3.3-70b-versatile')]` attributes. There is NO `Laravel\Ai\Agent` base class, no `$driver`/`$model` properties, and no `withResponseFormat()`/`structured()` — `prompt()` returns an `AgentResponse` whose `->text` holds the JSON string. Tests use `MatchingAgent::fake([[ ... ]])` — a **nested list of responses indexed by call step** (no real Groq call, no API key needed in CI)
 - If the PDF yields no text (scanned CV), default the score to 0 and store empty lists
 
 ---
@@ -1052,28 +1095,50 @@ The `ConversationalAgent` is a reusable AI agent built on the `laravel/ai` SDK (
 
 namespace App\Agents;
 
-use Laravel\Ai\Agent;
+use Laravel\Ai\Attributes\Model;
+use Laravel\Ai\Attributes\Provider;
+use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\Conversational;
+use Laravel\Ai\Messages\AssistantMessage;
+use Laravel\Ai\Messages\Message;
+use Laravel\Ai\Messages\UserMessage;
+use Laravel\Ai\Promptable;
 
-class ConversationalAgent extends Agent
+#[Provider('groq')]
+#[Model('llama-3.3-70b-versatile')]
+class ConversationalAgent implements Agent, Conversational
 {
-    protected string $driver = 'groq';
-    protected string $model = 'llama-3.3-70b-versatile';
+    use Promptable;
+
+    /** @var array<int, array{role: string, content: string}> */
+    public array $history = [];
+
+    public function instructions(): string
+    {
+        return 'You are a helpful recruitment assistant for SmartRecruit.';
+    }
+
+    /**
+     * Prior messages — the provider prepends these to instructions() + the new prompt.
+     *
+     * @return Message[]
+     */
+    public function messages(): iterable
+    {
+        return array_map(
+            fn (array $message) => $message['role'] === 'user'
+                ? new UserMessage($message['content'])
+                : new AssistantMessage($message['content']),
+            $this->history,
+        );
+    }
 
     /**
      * Send a prompt and return the response text.
-     * The optional history array contains previous {role, content} pairs.
      */
-    public function ask(string $prompt, array $history = []): string
+    public function ask(string $prompt): string
     {
-        $messages = [];
-
-        foreach ($history as $msg) {
-            $messages[] = ['role' => $msg['role'], 'content' => $msg['content']];
-        }
-
-        $messages[] = ['role' => 'user', 'content' => $prompt];
-
-        return $this->withMessages($messages)->prompt($prompt);
+        return $this->prompt($prompt)->text;
     }
 
     /**
@@ -1130,7 +1195,9 @@ class QuestionGeneratorService
         ]);
 
         // Call the AI
-        $questions = (new ConversationalAgent)->generateQuestions($job->tech_stack);
+        $agent = new ConversationalAgent;
+        $agent->history = $history;
+        $questions = $agent->generateQuestions($job->tech_stack);
 
         // Store AI response
         AgentConversationMessage::create([
@@ -1146,6 +1213,7 @@ class QuestionGeneratorService
 
 ### Important Notes
 - Conversation history is persisted so recruiters can ask follow-up or clarification questions
+- History is injected through the `Conversational` contract's `messages()` — the provider prepends those messages to `instructions()` + the new prompt. There is NO `withMessages()`; the SDK has no `system` message role (`MessageRole` is `assistant` / `user` / `tool_result`) — the system prompt is `instructions()`. Set the agent's `$history` property from the persisted `agent_conversation_messages` rows before prompting
 - The `ConversationalAgent` is context-agnostic and can be reused for matching explanations, general Q&A, etc.
 - For interview question generation specifically, the helper method `generateQuestions()` builds the domain-specific prompt
 - Conversations are scoped by `context_type` + `context_id` to avoid mixing contexts (e.g., matching vs questions)
@@ -1678,7 +1746,7 @@ class ApplicationResource extends JsonResource
             'candidate' => new UserResource($this->whenLoaded('candidate')),
             'job_offer' => new JobOfferResource($this->whenLoaded('jobOffer')),
             'interviews' => InterviewResource::collection($this->whenLoaded('interviews')),
-            'analysis' => new ApplicationAnalysisResource($this->whenLoaded('analysis')),
+            'analysis' => ApplicationAnalysisResource::make($this->whenLoaded('analysis')),
             'created_at' => $this->created_at->toISOString(),
         ];
     }
@@ -2083,7 +2151,9 @@ it('calculates matching score and keyword detail via the AI engine', function ()
     $application = Application::factory()->create(['job_offer_id' => $job->id]);
 
     Storage::fake('public');
-    Storage::put('cvs/' . $application->candidate_id . '/test_cv.pdf', 'PHP Laravel MySQL developer');
+    // NOTE: write to the 'public' disk explicitly (the default disk is 'local') and align cv_path with the stored path.
+    Storage::disk('public')->put('cvs/' . $application->candidate_id . '/test_cv.pdf', 'PHP Laravel MySQL developer');
+    $application->update(['cv_path' => 'cvs/' . $application->candidate_id . '/test_cv.pdf']);
 
     $result = $service->calculateScore($application);
 
@@ -2102,7 +2172,8 @@ it('returns 0 and empty lists when the CV has no extractable text', function () 
 
     Storage::fake('public');
     // Empty PDF text → no context to send to the AI.
-    Storage::put('cvs/' . $application->candidate_id . '/test_cv.pdf', '');
+    Storage::disk('public')->put('cvs/' . $application->candidate_id . '/test_cv.pdf', '');
+    $application->update(['cv_path' => 'cvs/' . $application->candidate_id . '/test_cv.pdf']);
 
     $result = $service->calculateScore($application);
 
