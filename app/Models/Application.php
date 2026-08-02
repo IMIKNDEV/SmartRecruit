@@ -51,4 +51,10 @@ class Application extends Model
     {
         return $this->hasOne(ApplicationAnalysis::class);
     }
+
+    public function agentConversation(): HasOne
+    {
+        return $this->hasOne(AgentConversation::class, 'context_id')
+            ->where('context_type', 'interview_questions');
+    }
 }

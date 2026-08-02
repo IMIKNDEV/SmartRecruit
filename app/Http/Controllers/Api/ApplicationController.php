@@ -65,6 +65,9 @@ class ApplicationController extends Controller
 
         $applications = $jobOffer->applications()
             ->with(['candidate', 'analysis'])
+            ->leftJoin('application_analysis', 'application_analysis.application_id', '=', 'applications.id')
+            ->select('applications.*')
+            ->orderByDesc('application_analysis.matching_score')
             ->paginate($request->integer('per_page', 15));
 
         return ApplicationResource::collection($applications);

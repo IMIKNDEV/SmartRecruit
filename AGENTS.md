@@ -537,11 +537,11 @@ class Application extends Model
         return $this->hasOne(ApplicationAnalysis::class);
     }
 
-    // An application has one agent conversation (for matching)
+    // An application has one agent conversation (for interview questions)
     public function agentConversation(): HasOne
     {
         return $this->hasOne(AgentConversation::class, 'context_id')
-            ->where('context_type', 'matching');
+            ->where('context_type', 'interview_questions');
     }
 }
 
@@ -1162,51 +1162,86 @@ namespace App\Services;
 use App\Agents\ConversationalAgent;
 use App\Models\AgentConversation;
 use App\Models\AgentConversationMessage;
-use App\Models\Interview;
+use App\Models\Application;
 
 class QuestionGeneratorService
 {
     /**
-     * Generate interview questions and persist the conversation.
+     * Generate interview questions for an application's tech stack and persist
+     * the conversation (user + assistant messages).
+     *
+     * @return array{questions: string, conversation_id: int}
      */
-    public function generate(Interview $interview): string
+    public function generate(Application $application): array
     {
-        $job = $interview->application->jobOffer;
+        $job = $application->jobOffer;
 
-        // Find or create a conversation for this interview context
+        // Find or create a conversation for this application context
         $conversation = AgentConversation::firstOrCreate([
             'user_id' => auth()->id(),
             'context_type' => 'interview_questions',
-            'context_id' => $interview->id,
+            'context_id' => $application->id,
         ]);
 
-        // Build history from previous messages
-        $history = AgentConversationMessage::where('agent_conversation_id', $conversation->id)
-            ->orderBy('created_at')
-            ->get()
-            ->map(fn ($msg) => ['role' => $msg->role, 'content' => $msg->content])
-            ->toArray();
+        $userContent = "Generate interview questions for tech stack: {$job->tech_stack}";
+        $history = $this->historyFor($conversation);
 
         // Store user prompt
-        AgentConversationMessage::create([
-            'agent_conversation_id' => $conversation->id,
-            'role' => 'user',
-            'content' => "Generate interview questions for tech stack: {$job->tech_stack}",
-        ]);
+        $this->storeMessage($conversation, 'user', $userContent);
 
-        // Call the AI
-        $agent = new ConversationalAgent;
-        $agent->history = $history;
-        $questions = $agent->generateQuestions($job->tech_stack);
+        // Call the AI (history excludes the current turn; it is sent as the prompt)
+        $questions = $this->askWithHistory($history, $userContent);
 
         // Store AI response
-        AgentConversationMessage::create([
-            'agent_conversation_id' => $conversation->id,
-            'role' => 'assistant',
-            'content' => $questions,
-        ]);
+        $this->storeMessage($conversation, 'assistant', $questions);
 
-        return $questions;
+        return [
+            'questions' => $questions,
+            'conversation_id' => $conversation->id,
+        ];
+    }
+
+    /**
+     * Send a turn in an existing conversation and persist both messages.
+     */
+    public function sendMessage(AgentConversation $conversation, string $content): AgentConversationMessage
+    {
+        $history = $this->historyFor($conversation);
+
+        $this->storeMessage($conversation, 'user', $content);
+
+        $reply = $this->askWithHistory($history, $content);
+
+        return $this->storeMessage($conversation, 'assistant', $reply);
+    }
+
+    protected function historyFor(AgentConversation $conversation): array
+    {
+        return AgentConversationMessage::where('agent_conversation_id', $conversation->id)
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn (AgentConversationMessage $message) => [
+                'role' => $message->role,
+                'content' => $message->content,
+            ])
+            ->toArray();
+    }
+
+    protected function askWithHistory(array $history, string $prompt): string
+    {
+        $agent = new ConversationalAgent;
+        $agent->history = $history;
+
+        return $agent->ask($prompt);
+    }
+
+    protected function storeMessage(AgentConversation $conversation, string $role, string $content): AgentConversationMessage
+    {
+        return AgentConversationMessage::create([
+            'agent_conversation_id' => $conversation->id,
+            'role' => $role,
+            'content' => $content,
+        ]);
     }
 }
 ```

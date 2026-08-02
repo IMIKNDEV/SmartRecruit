@@ -31,6 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/applications/{id}/suggestions', [ApplicationController::class, 'suggestions']);
         Route::get('/reply-templates', [ReplyTemplateController::class, 'index']);
         Route::put('/reply-templates/{key}', [ReplyTemplateController::class, 'update']);
+        Route::post('/applications/{id}/generate-questions', [AgentConversationController::class, 'generateQuestions']);
     });
 
     Route::middleware('role:candidate')->group(function () {
@@ -52,5 +53,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/agent-conversations', [AgentConversationController::class, 'store']);
     Route::get('/agent-conversations/{id}/messages', [AgentConversationController::class, 'messages']);
     Route::post('/agent-conversations/{id}/messages', [AgentConversationController::class, 'sendMessage']);
-    Route::post('/applications/{id}/generate-questions', [AgentConversationController::class, 'generateQuestions']);
 });
