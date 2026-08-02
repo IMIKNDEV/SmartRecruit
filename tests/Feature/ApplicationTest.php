@@ -2,6 +2,7 @@
 
 use App\Jobs\CalculateMatchingScoreJob;
 use App\Models\Application;
+use App\Models\ApplicationAnalysis;
 use App\Models\JobOffer;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -288,5 +289,58 @@ describe('notes and tags', function () {
         ]);
 
         $response->assertStatus(422);
+    });
+});
+
+describe('sorting applications by matching score', function () {
+    beforeEach(function () {
+        $this->recruiter = User::factory()->recruiter()->create();
+        $this->job = JobOffer::factory()->create(['recruiter_id' => $this->recruiter->id]);
+
+        $this->appLow = Application::factory()->create(['job_offer_id' => $this->job->id]);
+        $this->appHigh = Application::factory()->create(['job_offer_id' => $this->job->id]);
+        $this->appMid = Application::factory()->create(['job_offer_id' => $this->job->id]);
+        $this->appPending = Application::factory()->create(['job_offer_id' => $this->job->id]);
+
+        ApplicationAnalysis::factory()->create([
+            'application_id' => $this->appHigh->id,
+            'job_offer_id' => $this->job->id,
+            'matching_score' => 90.00,
+        ]);
+        ApplicationAnalysis::factory()->create([
+            'application_id' => $this->appMid->id,
+            'job_offer_id' => $this->job->id,
+            'matching_score' => 60.00,
+        ]);
+        ApplicationAnalysis::factory()->create([
+            'application_id' => $this->appLow->id,
+            'job_offer_id' => $this->job->id,
+            'matching_score' => 30.00,
+        ]);
+
+        Sanctum::actingAs($this->recruiter);
+    });
+
+    it('returns applications sorted by matching score descending', function () {
+        $response = $this->getJson("/api/job-offers/{$this->job->id}/applications");
+
+        $response->assertStatus(200);
+
+        $ids = collect($response->json('data'))->pluck('id')->all();
+
+        expect($ids)->toBe([
+            $this->appHigh->id,
+            $this->appMid->id,
+            $this->appLow->id,
+            $this->appPending->id,
+        ]);
+    });
+
+    it('includes matched and missing keywords per application', function () {
+        $response = $this->getJson("/api/job-offers/{$this->job->id}/applications");
+
+        $response->assertJsonPath('data.0.analysis.matching_score', '90.00')
+            ->assertJsonPath('data.0.analysis.matched_keywords', ['PHP', 'Laravel'])
+            ->assertJsonPath('data.0.analysis.missing_keywords', ['Docker']);
     });
 });

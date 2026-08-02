@@ -6,6 +6,7 @@ use Database\Factories\InterviewFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Interview extends Model
 {
@@ -32,6 +33,12 @@ class Interview extends Model
     public function application(): BelongsTo
     {
         return $this->belongsTo(Application::class);
+    }
+
+    public function agentConversation(): HasOne
+    {
+        return $this->hasOne(AgentConversation::class, 'context_id')
+            ->where('context_type', 'interview_questions');
     }
 
     public function getAverageScoreAttribute(): ?float
