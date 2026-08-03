@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Application;
 use App\Models\ApplicationAnalysis;
+use App\Services\BadgeService;
 use App\Services\MatchingService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -31,6 +32,8 @@ class CalculateMatchingScoreJob implements ShouldQueue
                     'missing_keywords' => $result['missing'],
                 ]
             );
+
+            (new BadgeService)->checkAndAward($this->application->load('analysis'));
         } catch (\Throwable $e) {
             Log::error('Matching score failed', [
                 'application_id' => $this->application->id,
