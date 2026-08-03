@@ -15,6 +15,7 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'role' => $this->role,
             'avatar' => $this->avatar ? asset('storage/'.$this->avatar) : null,
+            'badges' => BadgeResource::collection($this->whenLoaded('badges')),
             'created_at' => $this->created_at?->toISOString(),
         ];
     }

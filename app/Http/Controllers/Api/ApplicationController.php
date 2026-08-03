@@ -12,6 +12,7 @@ use App\Http\Resources\ApplicationResource;
 use App\Jobs\CalculateMatchingScoreJob;
 use App\Models\Application;
 use App\Models\JobOffer;
+use App\Services\BadgeService;
 use Illuminate\Http\Request;
 
 class ApplicationController extends Controller
@@ -106,6 +107,10 @@ class ApplicationController extends Controller
         }
 
         $application->update(['status' => $target]);
+
+        if ($target === 'accepted') {
+            (new BadgeService)->checkInterviewBadge($application);
+        }
 
         return new ApplicationResource($application->load('jobOffer'));
     }
