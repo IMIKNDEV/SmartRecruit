@@ -1,15 +1,15 @@
 @extends('layouts.public-jobs')
 
-@section('title', 'Offre d\'emploi')
+@section('title', 'Job offer')
 
 @section('body_attrs')
  data-page="jobShow"
 @endsection
 
 @section('content')
-<div class="container lp-jobs-wrap">
+<div class="mx-auto max-w-6xl px-6 py-14 sm:py-16">
     <div id="jobDetail" data-job-id="{{ $jobId }}">
-        <div class="empty"><p>Chargement de l'offre…</p></div>
+        <div class="empty"><p>Loading job offer…</p></div>
     </div>
 </div>
 @endsection

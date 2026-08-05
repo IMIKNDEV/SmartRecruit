@@ -26,25 +26,25 @@
     if (!iso) return '—';
     const d = new Date(iso);
     if (isNaN(d)) return iso;
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   function fmtDateTime(iso) {
     if (!iso) return '—';
     const d = new Date(iso);
     if (isNaN(d)) return iso;
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) +
-      ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) +
+      ' at ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   }
 
   function fmtSalary(s) {
-    if (s === null || s === undefined || s === '') return 'Non communiqué';
-    return Number(s).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €';
+    if (s === null || s === undefined || s === '') return 'Not disclosed';
+    return Number(s).toLocaleString('en-GB', { maximumFractionDigits: 0 }) + ' €';
   }
 
   const STATUS_LABELS = {
-    received: 'Reçu', interview: 'Entretien', accepted: 'Accepté', refused: 'Refusé',
-    scheduled: 'Planifié', completed: 'Terminé', cancelled: 'Annulé', active: 'Active', archived: 'Archivée',
+    received: 'Received', interview: 'Interview', accepted: 'Accepted', refused: 'Refused',
+    scheduled: 'Scheduled', completed: 'Completed', cancelled: 'Cancelled', active: 'Active', archived: 'Archived',
   };
 
   const STATUS_PILL_CLASS = {
@@ -53,7 +53,7 @@
   };
 
   const TAG_LABELS = {
-    a_relancer: 'À relancer', prioritaire: 'Prioritaire', reserve: 'Réserve', entretien_planifie: 'Entretien planifié',
+    a_relancer: 'Follow up', prioritaire: 'Priority', reserve: 'Reserve', entretien_planifie: 'Interview scheduled',
   };
 
   function statusPill(status) {
@@ -874,19 +874,22 @@
 
       function render(list) {
         if (!list.length) {
-          wrap.innerHTML = '<div class="empty"><p>Aucune offre ne correspond à vos critères.</p></div>';
+          wrap.innerHTML = '<div class="empty"><p>No open positions match your criteria.</p></div>';
           return;
         }
         wrap.innerHTML = list.map(function (j) {
           const chips = (j.tech_stack_array || []).map(function (t) { return '<span class="chip">' + escapeHtml(t) + '</span>'; }).join('');
+          const apps = j.applications_count != null
+            ? j.applications_count + ' application' + (j.applications_count === 1 ? '' : 's')
+            : 'Open for applications';
           return '<a class="job-card" href="/offres/' + j.id + '">' +
             '<div class="job-card-top"><h3>' + escapeHtml(j.title) + '</h3>' +
             '<span class="pill">' + escapeHtml(j.contract_type) + '</span></div>' +
             '<p class="job-card-desc">' + escapeHtml(j.description).slice(0, 160) + '…</p>' +
             '<div class="chips">' + chips + '</div>' +
             '<div class="job-card-meta">' +
-            '<span>' + SR.icon('briefcase', 15) + ' ' + (j.applications_count != null ? j.applications_count + ' candidature(s)' : 'Nouvelles candidatures') + '</span>' +
-            '<span>' + SR.icon('calendar', 15) + ' Limite : ' + fmtDate(j.deadline) + '</span>' +
+            '<span>' + SR.icon('briefcase', 15) + ' ' + apps + '</span>' +
+            '<span>' + SR.icon('calendar', 15) + ' Deadline: ' + fmtDate(j.deadline) + '</span>' +
             '<span>' + SR.icon('note', 15) + ' ' + fmtSalary(j.salary) + '</span>' +
             '</div></a>';
         }).join('');
@@ -924,26 +927,29 @@
       const id = Number(wrap.dataset.jobId);
 
       SR.load('/job-offers/' + id, function () { return SR.mock.job(id); }).then(function (j) {
-        if (!j) { wrap.innerHTML = '<div class="empty"><p>Offre introuvable.</p></div>'; return; }
+        if (!j) { wrap.innerHTML = '<div class="empty"><p>Position not found.</p></div>'; return; }
         const chips = (j.tech_stack_array || []).map(function (t) { return '<span class="chip">' + escapeHtml(t) + '</span>'; }).join('');
+        const appCount = j.applications_count != null
+          ? j.applications_count + ' application' + (j.applications_count === 1 ? '' : 's')
+          : 'Several applications';
         const meta = [
-          ['briefcase', 'Contrat : ' + escapeHtml(j.contract_type)],
-          ['note', 'Rémunération : ' + fmtSalary(j.salary)],
-          ['calendar', 'Date limite : ' + fmtDate(j.deadline)],
-          ['users', (j.applications_count != null ? j.applications_count : 'Plusieurs') + ' candidature(s)'],
-          ['clock', 'Publiée le ' + fmtDate(j.created_at)],
+          ['briefcase', 'Contract: ' + escapeHtml(j.contract_type)],
+          ['note', 'Salary: ' + fmtSalary(j.salary)],
+          ['calendar', 'Deadline: ' + fmtDate(j.deadline)],
+          ['users', appCount],
+          ['clock', 'Posted ' + fmtDate(j.created_at)],
         ];
         wrap.innerHTML =
           '<div class="detail-hero">' +
           '<div class="detail-hero-main"><span class="pill">' + escapeHtml(j.contract_type) + '</span>' +
           '<h1>' + escapeHtml(j.title) + '</h1>' +
           '<div class="chips">' + chips + '</div></div>' +
-          '<a class="btn btn-primary btn-pill" id="applyCta" href="' + applyHref() + '">' + SR.icon('arrowRight', 16) + ' Postuler</a>' +
+          '<a class="btn btn-primary" id="applyCta" href="' + applyHref() + '">' + SR.icon('arrowRight', 16) + ' Apply</a>' +
           '</div>' +
           '<div class="detail-grid">' +
-          '<div class="detail-main"><h2>Description du poste</h2><div class="prose">' + escapeHtml(j.description).replace(/\n/g, '<br>') + '</div></div>' +
+          '<div class="detail-main"><h2>Job description</h2><div class="prose">' + escapeHtml(j.description).replace(/\n/g, '<br>') + '</div></div>' +
           '<aside class="detail-side">' +
-          '<div class="side-card"><h3>Informations</h3>' +
+          '<div class="side-card"><h3>Details</h3>' +
           meta.map(function (m) { return '<div class="side-row">' + SR.icon(m[0], 16) + '<span>' + m[1] + '</span></div>'; }).join('') +
           '</div></aside></div>';
 
@@ -953,7 +959,7 @@
           if (u.role === 'candidate') return '/postuler/' + j.id;
           return '/mes-candidatures';
         }
-      }).catch(function () { wrap.innerHTML = '<div class="empty"><p>Impossible de charger l\'offre.</p></div>'; });
+      }).catch(function () { wrap.innerHTML = '<div class="empty"><p>Unable to load this position.</p></div>'; });
     },
   };
 
