@@ -145,6 +145,7 @@
     chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
     users: '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     eye: '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>',
+    eyeOff: '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="m1 1 22 22"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>',
     note: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
     briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/>',
@@ -202,7 +203,7 @@
     },
     home: function (user) {
       user = user || auth.user();
-      return (user && user.role === 'recruiter') ? '/dashboard' : '/mes-candidatures';
+      return (user && user.role === 'recruiter') ? '/dashboard' : '/my-applications';
     },
     logout: async function (e) {
       if (e) e.preventDefault();
@@ -227,7 +228,7 @@
     if (res.status === 401 && !path.includes('/login') && !path.includes('/register')) {
       if (!USE_MOCKS) {
         auth.clear();
-        window.location.href = '/connexion';
+        window.location.href = '/login';
       }
       throw new Error('Unauthenticated');
     }
@@ -437,6 +438,31 @@
       { job_offer_id: 2, interview_to_accepted: 40.0, recruiter_avg: 30.1 },
     ],
     pending_tasks: { interviews_to_evaluate: 2, applications_pending_over_7_days: 4 },
+    applications_trend: (function () {
+      const out = []; const now = new Date();
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(now); d.setDate(now.getDate() - i);
+        out.push({ date: d.toISOString().slice(0, 10), count: Math.floor(Math.random() * 6) });
+      }
+      return out;
+    })(),
+    upcoming_interviews: [
+      { id: 11, scheduled_at: '2026-08-10T14:00:00+00:00', link: 'https://meet.google.com/abc-defg-hij', candidate_name: 'Sara El Amrani', job_title: 'Développeur Laravel Senior' },
+      { id: 12, scheduled_at: '2026-08-12T10:00:00+00:00', link: '', candidate_name: 'Nadia Bouhlel', job_title: 'Développeur Full-Stack React' },
+      { id: 13, scheduled_at: '2026-08-13T09:30:00+00:00', link: 'https://meet.google.com/xyz', candidate_name: 'Omar Chraibi', job_title: 'Développeur Laravel Senior' },
+    ],
+    pipeline_health: {
+      stale_by_offer: [{ job_offer_id: 1, title: 'Développeur Laravel Senior', count: 3 }],
+      deadline_soon: [{ job_offer_id: 4, title: 'Ingénieur DevOps & Cloud', deadline: '2026-08-10' }],
+      avg_first_response_days: 3.4,
+    },
+    top_candidates: [
+      { id: 5, matching_score: 96, status: 'accepted', tags: [], candidate: { id: 5, name: 'Omar Chraibi', badges: ['cv_complet', 'high_match', 'interview_passed'] }, job_offer: { id: 1, title: 'Développeur Laravel Senior' } },
+      { id: 1, matching_score: 92, status: 'interview', tags: ['prioritaire'], candidate: { id: 1, name: 'Sara El Amrani', badges: ['cv_complet', 'high_match'] }, job_offer: { id: 1, title: 'Développeur Laravel Senior' } },
+      { id: 6, matching_score: 88, status: 'received', tags: ['reserve'], candidate: { id: 6, name: 'Nadia Bouhlel', badges: ['cv_complet'] }, job_offer: { id: 2, title: 'Développeur Full-Stack React' } },
+      { id: 3, matching_score: 84, status: 'interview', tags: [], candidate: { id: 3, name: 'Amine Tazi', badges: ['cv_complet'] }, job_offer: { id: 1, title: 'Développeur Laravel Senior' } },
+      { id: 2, matching_score: 78, status: 'received', tags: ['a_relancer'], candidate: { id: 2, name: 'Youssef Benali', badges: ['cv_complet'] }, job_offer: { id: 1, title: 'Développeur Laravel Senior' } },
+    ],
   };
 
   const MOCK_TEMPLATES = [
@@ -552,7 +578,7 @@
     if (!input) return;
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && input.value.trim()) {
-        window.location.href = '/recruteur/offres?search=' + encodeURIComponent(input.value.trim());
+        window.location.href = '/recruiter/jobs?search=' + encodeURIComponent(input.value.trim());
       }
     });
   }
@@ -565,7 +591,7 @@
     const user = auth.user();
 
     if (role) {
-      if (!token) { window.location.replace('/connexion'); return false; }
+      if (!token) { window.location.replace('/login'); return false; }
       if (user && user.role && user.role !== role) { window.location.replace(auth.home(user)); return false; }
     }
     if (token && user && user.role) {
@@ -593,7 +619,7 @@
         el.style.display = (el.dataset.nav === navRole) ? '' : 'none';
       });
       const roleLabel = document.getElementById('sidebarRole');
-      if (roleLabel) roleLabel.textContent = navRole === 'recruiter' ? 'Recruteur' : 'Candidat';
+      if (roleLabel) roleLabel.textContent = navRole === 'recruiter' ? 'Recruiter' : 'Candidate';
     }
     if (!user) return;
     const name = document.getElementById('sidebarName');
@@ -612,8 +638,18 @@
       const form = document.getElementById('loginForm');
       if (!form) return;
       if (SR.auth.token()) { window.location.href = SR.auth.home(); return; }
+      bindPasswordToggles(form);
+      document.querySelectorAll('[data-demo-email]').forEach(function (el) {
+        el.addEventListener('click', function () {
+          form.email.value = el.dataset.demoEmail || '';
+          form.password.value = el.dataset.demoPassword || '';
+          clearFormError(form);
+          form.password.focus();
+        });
+      });
       form.addEventListener('submit', async function (e) {
         e.preventDefault();
+        clearFormError(form);
         const btn = form.querySelector('[type="submit"]');
         const payload = { email: form.email.value.trim(), password: form.password.value };
         SR.helpers.setLoading(btn, true);
@@ -636,6 +672,7 @@
       const form = document.getElementById('registerForm');
       if (!form) return;
       if (SR.auth.token()) { window.location.href = SR.auth.home(); return; }
+      bindPasswordToggles(form);
       let selectedRole = 'recruiter';
       const opts = form.querySelectorAll('.role-option');
       opts.forEach(function (opt) {
@@ -648,6 +685,7 @@
       });
       form.addEventListener('submit', async function (e) {
         e.preventDefault();
+        clearFormError(form);
         if (form.password.value !== form.password_confirmation.value) {
           showFormError(form, 'Passwords do not match.');
           return;
@@ -680,58 +718,7 @@
   /* ---------------- Recruiter: dashboard ---------------- */
   SR.pages.dashboard = {
     init: function () {
-      const board = document.getElementById('kanbanBoard');
-      if (!board) return;
-
       let apps = [];
-
-      const NEXT_STATUS = {
-        received: 'interview', interview: 'accepted', accepted: null, refused: null,
-      };
-      const NEXT_LABEL = { received: 'Entretien', interview: 'Accepter' };
-
-      function colApps(status) {
-        return apps.filter(function (a) { return a.status === status; });
-      }
-
-      function renderKanban() {
-        const cols = ['received', 'interview', 'accepted', 'refused'];
-        board.innerHTML = cols.map(function (st) {
-          const items = colApps(st);
-          const dots = { received: 'var(--pink)', interview: 'var(--pink-light)', accepted: 'var(--success)', refused: 'var(--danger)' };
-          return '<div class="kanban-col"><div class="kanban-col-head">' +
-            '<span class="kanban-col-title"><i class="kanban-col-dot" style="background:' + dots[st] + '"></i> ' + STATUS_LABELS[st] + '</span>' +
-            '<span class="kanban-count">' + items.length + '</span></div>' +
-            items.map(function (a) {
-              const next = NEXT_STATUS[a.status];
-              const nextBtn = next
-                ? '<button class="btn btn-sm kanban-move" data-id="' + a.id + '" data-next="' + next + '">→ ' + NEXT_LABEL[a.status] + '</button>' +
-                  (a.status === 'interview' ? '' : '<button class="btn btn-sm btn-ghost-danger kanban-move" data-id="' + a.id + '" data-next="refused">Refuser</button>')
-                : '';
-              return '<div class="kanban-card">' +
-                '<div class="kanban-card-top">' +
-                '<div style="display:flex;align-items:center;gap:10px">' + scoreRing(a.matching_score, 'sm') +
-                '<div><div class="kanban-cand-name">' + escapeHtml(a.candidate.name) + '</div>' +
-                '<div class="kanban-cand-job">' + escapeHtml((a.job_offer && a.job_offer.title) || '') + '</div></div></div>' +
-                '</div>' +
-                '<div class="kanban-tags">' + (a.tags || []).map(tagChip).join('') + '</div>' +
-                '<div class="kanban-card-foot">' + nextBtn + '</div>' +
-                '</div>';
-            }).join('') + '</div>';
-        }).join('');
-      }
-
-      board.addEventListener('click', function (e) {
-        const btn = e.target.closest('.kanban-move');
-        if (!btn) return;
-        const id = Number(btn.dataset.id);
-        const next = btn.dataset.next;
-        const app = apps.find(function (a) { return a.id === id; });
-        if (!app) return;
-        app.status = next;
-        renderKanban();
-        toast(app.candidate.name + ' → ' + (STATUS_LABELS[next] || next).toLowerCase(), 'success');
-      });
 
       function renderStats() {
         const grid = document.getElementById('statGrid');
@@ -741,10 +728,10 @@
         const scores = apps.map(function (a) { return Number(a.matching_score) || 0; });
         const avg = scores.length ? (scores.reduce(function (s, v) { return s + v; }, 0) / scores.length) : 0;
         const stats = [
-          { label: 'Offres actives', value: String(funnels.length || SR.mock.jobs().length), icon: 'briefcase', cls: 'blue', delta: 'publiées sur la plateforme' },
-          { label: 'Candidatures reçues', value: String(received), icon: 'users', cls: 'green', delta: 'au total sur toutes les offres' },
-          { label: 'En entretien', value: String(inInterview), icon: 'calendar', cls: 'amber', delta: 'candidatures en cours de traitement' },
-          { label: 'Score moyen', value: Math.round(avg) + ' / 100', icon: 'target', cls: 'red', delta: 'compatibilité IA moyenne' },
+          { label: 'Active offers', value: String(funnels.length || SR.mock.jobs().length), icon: 'briefcase', cls: 'blue', delta: 'published on the platform' },
+          { label: 'Applications received', value: String(received), icon: 'users', cls: 'green', delta: 'total across all offers' },
+          { label: 'In interview', value: String(inInterview), icon: 'calendar', cls: 'amber', delta: 'applications being processed' },
+          { label: 'Average score', value: Math.round(avg) + ' / 100', icon: 'target', cls: 'red', delta: 'average AI compatibility' },
         ];
         grid.innerHTML = stats.map(function (s) {
           return '<div class="card card-pad stat-card"><div class="stat-top">' +
@@ -758,7 +745,7 @@
       function renderFunnels() {
         const box = document.getElementById('funnelBox');
         const funnels = dash.funnels || [];
-        if (!funnels.length) { box.innerHTML = '<div class="empty">Aucune offre.</div>'; return; }
+        if (!funnels.length) { box.innerHTML = '<div class="empty">No offers.</div>'; return; }
         box.innerHTML = funnels.map(function (f) {
           const seg = [
             ['received', f.received], ['interview', f.interview], ['accepted', f.accepted], ['refused', f.refused],
@@ -770,7 +757,7 @@
           }).join('');
           return '<div class="funnel-row">' +
             '<div class="funnel-head"><span class="funnel-title">' + escapeHtml(f.title) + '</span>' +
-            '<span class="funnel-sub">' + total + ' candidatures</span></div>' +
+            '<span class="funnel-sub">' + total + ' applications</span></div>' +
             '<div class="funnel-track">' + parts + '</div></div>';
         }).join('');
       }
@@ -790,7 +777,7 @@
       function renderActivity() {
         const box = document.getElementById('activityBox');
         const list = dash.recent_activity || [];
-        if (!list.length) { box.innerHTML = '<div class="empty">Aucune activité.</div>'; return; }
+        if (!list.length) { box.innerHTML = '<div class="empty">No activity.</div>'; return; }
         const ic = { application: 'upload', interview: 'calendar', acceptance: 'check', refusal: 'x' };
         box.innerHTML = list.map(function (a) {
           return '<li class="activity-item"><span class="act-ic">' + SR.icon(ic[a.type] || 'info', 16) + '</span>' +
@@ -799,29 +786,129 @@
         }).join('');
       }
 
-      function renderPending() {
-        const box = document.getElementById('pendingBox');
+      function renderTimeToHire() {
+        const box = document.getElementById('timeToHireBox');
+        if (!box) return;
+        const t = dash.time_to_hire || {};
+        const rows = (t.by_offer || []).filter(function (o) { return o.avg_days > 0; });
+        const titleOf = {};
+        (dash.funnels || []).forEach(function (f) { titleOf[f.job_offer_id] = f.title; });
+        const rowsHtml = rows.map(function (o) {
+          return '<div class="task-item"><span class="task-dot navy"></span>' +
+            '<span style="flex:1;font-size:13.5px;color:var(--ink)">' + escapeHtml(titleOf[o.job_offer_id] || ('Offer #' + o.job_offer_id)) + '</span>' +
+            '<span class="mono" style="font-weight:600;color:var(--navy)">' + o.avg_days + ' d</span></div>';
+        }).join('');
+        box.innerHTML = '<div class="task-item"><span class="task-dot green"></span>' +
+          '<span style="flex:1;font-size:13.5px;color:var(--ink)">Global average</span>' +
+          '<span class="mono" style="font-weight:600;color:var(--navy)">' + (t.global_avg_days || 0) + ' days</span></div>' +
+          rowsHtml;
+      }
+
+      function renderTrend() {
+        const box = document.getElementById('trendBox');
+        if (!box) return;
+        const pts = dash.applications_trend || [];
+        if (!pts.length) { box.innerHTML = '<div class="empty">No applications yet.</div>'; return; }
+        const max = Math.max.apply(null, pts.map(function (p) { return p.count; })) || 1;
+        const bars = pts.map(function (p) {
+          const h = Math.max(6, Math.round((p.count / max) * 100));
+          const label = p.date + ' — ' + p.count + ' application' + (p.count === 1 ? '' : 's');
+          return '<div class="trend-bar-wrap" title="' + label + '">' +
+            '<div class="trend-bar" style="height:' + h + '%"></div></div>';
+        }).join('');
+        function shortDate(iso) {
+          const d = new Date(iso + 'T00:00:00');
+          return isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        }
+        const mid = pts[Math.floor(pts.length / 2)];
+        box.innerHTML = '<div class="trend-chart">' + bars + '</div>' +
+          '<div class="trend-axis"><span>' + shortDate(pts[0].date) + '</span>' +
+          '<span>' + shortDate(mid.date) + '</span>' +
+          '<span>' + shortDate(pts[pts.length - 1].date) + '</span></div>';
+      }
+
+      function renderHealth() {
+        const box = document.getElementById('healthBox');
+        if (!box) return;
+        const h = dash.pipeline_health || {};
         const p = dash.pending_tasks || {};
-        const tasks = [
-          { label: 'Entretiens à évaluer', count: p.interviews_to_evaluate, dot: 'amber' },
-          { label: 'Candidatures en attente depuis +7 jours', count: p.applications_pending_over_7_days, dot: 'red' },
-        ];
-        box.innerHTML = tasks.map(function (t) {
-          return '<div class="task-item"><span class="task-dot ' + t.dot + '"></span>' +
-            '<span style="flex:1;font-size:13.5px;color:var(--ink)">' + t.label + '</span>' +
-            '<span class="mono" style="font-weight:600;color:var(--navy)">' + t.count + '</span></div>';
+        const stale = h.stale_by_offer || [];
+        const deadlines = h.deadline_soon || [];
+        const row = function (dot, cls, label, value, valueColor) {
+          return '<div class="task-item"><span class="task-dot ' + dot + '"></span>' +
+            '<span style="flex:1;font-size:13.5px;color:var(--ink)">' + label + '</span>' +
+            '<span class="mono" style="font-weight:600;color:' + valueColor + '">' + value + '</span></div>';
+        };
+        let html = '';
+        if ((p.interviews_to_evaluate || 0) > 0) {
+          html += row('red', '', 'Interviews to evaluate', p.interviews_to_evaluate, 'var(--danger)');
+        }
+        stale.forEach(function (s) {
+          html += row('amber', '', escapeHtml(s.title) + ' — pending 7+ days', s.count, 'var(--warning)');
+        });
+        deadlines.forEach(function (d) {
+          html += row('navy', '', escapeHtml(d.title) + ' closes ' + d.deadline, 'soon', 'var(--navy)');
+        });
+        html += row('green', '', 'Avg time to first interview', (h.avg_first_response_days || 0) + ' days', 'var(--navy)');
+        box.innerHTML = html;
+      }
+
+      function renderUpcoming() {
+        const box = document.getElementById('upcomingBox');
+        if (!box) return;
+        const list = dash.upcoming_interviews || [];
+        if (!list.length) { box.innerHTML = '<div class="empty">No upcoming interviews.</div>'; return; }
+        const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        box.innerHTML = list.map(function (iv) {
+          const dt = new Date(iv.scheduled_at);
+          const day = isNaN(dt.getTime()) ? '' : dt.getDate();
+          const mon = isNaN(dt.getTime()) ? '' : MONTHS[dt.getMonth()];
+          const time = isNaN(dt.getTime()) ? '' : dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          return '<div class="upcoming-item">' +
+            '<div class="upcoming-date"><span class="upcoming-day">' + day + '</span>' +
+            '<span class="upcoming-mon">' + mon + '</span></div>' +
+            '<div class="upcoming-main"><div class="upcoming-who">' + escapeHtml(iv.candidate_name) + '</div>' +
+            '<div class="upcoming-what">' + escapeHtml(iv.job_title) + '</div></div>' +
+            (iv.link
+              ? '<a class="upcoming-time" href="' + iv.link + '" target="_blank" rel="noopener" title="Join meeting">' + time + ' ↗</a>'
+              : '<span class="upcoming-time">' + time + '</span>') +
+            '</div>';
+        }).join('');
+      }
+
+      function renderTopCandidates() {
+        const box = document.getElementById('topCandBox');
+        if (!box) return;
+        const list = dash.top_candidates || [];
+        if (!list.length) { box.innerHTML = '<div class="empty">No candidates yet.</div>'; return; }
+        const badgeLabel = { cv_complet: 'CV complete', high_match: 'High match', interview_passed: 'Passed interview' };
+        box.innerHTML = list.map(function (c, i) {
+          const badges = (c.candidate && c.candidate.badges) || [];
+          const chips = badges.map(function (b) {
+            return '<span class="chip chip-ok">' + (badgeLabel[b] || b.replace('_', ' ')) + '</span>';
+          }).join('');
+          return '<div class="topcand-item">' +
+            '<span class="pill-rank">' + (i + 1) + '</span>' +
+            scoreRing(c.matching_score, 'sm') +
+            '<div class="topcand-main"><div class="topcand-name">' + escapeHtml(c.candidate ? c.candidate.name : 'Candidate') + '</div>' +
+            '<div class="topcand-job">' + escapeHtml(c.job_offer ? c.job_offer.title : '') + '</div>' +
+            (chips ? '<div class="topcand-chips">' + chips + '</div>' : '') + '</div>' +
+            '<span class="pill ' + statusPill(c.status) + '">' + (STATUS_LABELS[c.status] || c.status) + '</span>' +
+            '</div>';
         }).join('');
       }
 
       function renderCompare() {
         const box = document.getElementById('offerCompareBox');
         const list = dash.offer_comparison || [];
-        if (!list.length) { box.innerHTML = '<div class="empty">Aucune donnée.</div>'; return; }
+        if (!list.length) { box.innerHTML = '<div class="empty">No data.</div>'; return; }
+        const titleOf = {};
+        (dash.funnels || []).forEach(function (f) { titleOf[f.job_offer_id] = f.title; });
         box.innerHTML = list.map(function (o) {
           const pct = o.interview_to_accepted || 0;
           return '<div class="funnel-row">' +
-            '<div class="funnel-head"><span class="funnel-title">Offre #' + o.job_offer_id + '</span>' +
-            '<span class="funnel-sub">' + pct + '% vs moyenne ' + o.recruiter_avg + '%</span></div>' +
+            '<div class="funnel-head"><span class="funnel-title">' + escapeHtml(titleOf[o.job_offer_id] || ('Offer #' + o.job_offer_id)) + '</span>' +
+            '<span class="funnel-sub">' + pct + '% vs your avg ' + o.recruiter_avg + '%</span></div>' +
             '<div class="dist-track"><div class="dist-fill" style="width:' + Math.min(pct, 100) + '%;background:var(--blue)"></div></div></div>';
         }).join('');
       }
@@ -831,21 +918,24 @@
         SR.load('/dashboard/stats', SR.mock.dashboard),
       ]).then(function (results) {
         dash = results[0] || {};
-        apps = SR.mock.applications();
-        renderKanban();
+        apps = (dash.applications && dash.applications.length ? dash.applications : SR.mock.applications());
         renderStats();
         renderFunnels();
         renderScoreDist();
+        renderTimeToHire();
+        renderTrend();
+        renderHealth();
+        renderTopCandidates();
+        renderUpcoming();
         renderActivity();
-        renderPending();
         renderCompare();
         const sub = document.getElementById('dashSub');
         if (sub) {
           const u = auth.user();
-          sub.textContent = (u ? 'Bienvenue, ' + u.name + '.' : '') + ' Vue d\'ensemble de votre activité de recrutement.';
+          sub.textContent = (u ? 'Welcome, ' + u.name + '.' : '') + ' Here is an overview of your recruitment activity.';
         }
       }).catch(function () {
-        board.innerHTML = '<div class="empty">Impossible de charger le tableau de bord.</div>';
+        toast('Unable to load the dashboard.', 'error');
       });
     },
   };
@@ -858,6 +948,39 @@
     } else {
       toast(message, 'error');
     }
+  }
+
+  function clearFormError(form) {
+    const wrap = form.querySelector('.form-alert');
+    if (wrap) wrap.style.display = 'none';
+  }
+
+  /* Wrap every password input in a reveal toggle (eye icon) */
+  function bindPasswordToggles(scope) {
+    scope = scope || document;
+    const inputs = scope.querySelectorAll('input[type="password"]');
+    inputs.forEach(function (input) {
+      if (input.dataset.pwBound) return;
+      input.dataset.pwBound = '1';
+      const wrap = document.createElement('div');
+      wrap.className = 'password-wrap';
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'password-toggle';
+      btn.setAttribute('aria-label', 'Show password');
+      btn.setAttribute('aria-pressed', 'false');
+      btn.innerHTML = icon('eye', 18);
+      btn.addEventListener('click', function () {
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+        btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        btn.innerHTML = icon(show ? 'eyeOff' : 'eye', 18);
+      });
+      wrap.appendChild(btn);
+    });
   }
 
   function debounce(fn, ms) {
@@ -882,7 +1005,7 @@
           const apps = j.applications_count != null
             ? j.applications_count + ' application' + (j.applications_count === 1 ? '' : 's')
             : 'Open for applications';
-          return '<a class="job-card" href="/offres/' + j.id + '">' +
+          return '<a class="job-card" href="/jobs/' + j.id + '">' +
             '<div class="job-card-top"><h3>' + escapeHtml(j.title) + '</h3>' +
             '<span class="pill">' + escapeHtml(j.contract_type) + '</span></div>' +
             '<p class="job-card-desc">' + escapeHtml(j.description).slice(0, 160) + '…</p>' +
@@ -955,9 +1078,9 @@
 
         function applyHref() {
           const u = auth.user();
-          if (!u) return '/connexion';
-          if (u.role === 'candidate') return '/postuler/' + j.id;
-          return '/mes-candidatures';
+          if (!u) return '/login';
+          if (u.role === 'candidate') return '/apply/' + j.id;
+          return '/my-applications';
         }
       }).catch(function () { wrap.innerHTML = '<div class="empty"><p>Unable to load this position.</p></div>'; });
     },
@@ -971,6 +1094,26 @@
       const searchInput = document.getElementById('jobsSearch');
       const statusSelect = document.getElementById('jobsStatusFilter');
       let jobs = [];
+      let funnels = {}; // keyed by job_offer_id: { received, interview, accepted, refused }
+
+      function pipelineHtml(j) {
+        const f = funnels[j.id] || { received: 0, interview: 0, accepted: 0, refused: 0 };
+        const segs = [
+          ['received', f.received, 'var(--pink)'],
+          ['interview', f.interview, 'var(--pink-light)'],
+          ['accepted', f.accepted, 'var(--success)'],
+          ['refused', f.refused, 'var(--danger)'],
+        ];
+        const total = segs.reduce(function (s, x) { return s + x[1]; }, 0) || 1;
+        const bar = segs.map(function (s) {
+          return '<span style="width:' + ((s[1] / total) * 100).toFixed(1) + '%;background:' + s[2] + '" title="' + STATUS_LABELS[s[0]] + '"></span>';
+        }).join('');
+        const counts = segs.map(function (s) {
+          return '<span class="mini-pipe" title="' + STATUS_LABELS[s[0]] + '"><i style="background:' + s[2] + '"></i><b>' + s[1] + '</b></span>';
+        }).join('');
+        return '<div class="mini-bar" aria-hidden="true">' + bar + '</div>' +
+          '<div class="mini-pipeline">' + counts + '</div>';
+      }
 
       function render() {
         const q = (searchInput.value || '').toLowerCase().trim();
@@ -982,7 +1125,7 @@
           return okQ && okS;
         });
         if (!list.length) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--slate);padding:40px">Aucune offre trouvée.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--slate);padding:40px">No job offers found.</td></tr>';
           return;
         }
         tbody.innerHTML = list.map(function (j) {
@@ -994,12 +1137,12 @@
             '<div class="chips" style="gap:4px;margin-top:4px">' + chips + '</div></td>' +
             '<td><span class="pill">' + escapeHtml(j.contract_type) + '</span></td>' +
             '<td class="mono" style="color:var(--slate)">' + fmtDate(j.deadline) + '</td>' +
-            '<td style="color:var(--ink)">' + (j.applications_count != null ? j.applications_count : 0) + '</td>' +
+            '<td>' + pipelineHtml(j) + '</td>' +
             '<td>' + statusPill(j.status) + '</td>' +
             '<td style="text-align:right;white-space:nowrap">' +
-            '<a class="btn btn-sm btn-ghost" href="/recruteur/offres/' + j.id + '/candidatures">Candidatures</a> ' +
-            '<a class="btn btn-sm btn-ghost" href="/recruteur/offres/' + j.id + '/modifier">Modifier</a> ' +
-            '<button class="btn btn-sm btn-ghost-danger" data-action="archive" data-id="' + j.id + '" data-title="' + escapeHtml(j.title) + '">Archiver</button>' +
+            '<a class="btn btn-sm btn-ghost" href="/recruiter/jobs/' + j.id + '/applications">Pipeline</a> ' +
+            '<a class="btn btn-sm btn-ghost" href="/recruiter/jobs/' + j.id + '/edit">Edit</a> ' +
+            '<button class="btn btn-sm btn-ghost-danger" data-action="archive" data-id="' + j.id + '" data-title="' + escapeHtml(j.title) + '">Archive</button>' +
             '</td></tr>';
         }).join('');
       }
@@ -1009,26 +1152,32 @@
         if (!btn) return;
         const id = Number(btn.dataset.id);
         SR.modal.open(
-          '<p style="font-size:14px;color:var(--slate);margin:0 0 18px">Archiver l\'offre « ' + btn.dataset.title + ' » ? Elle sera masquée du site public.</p>' +
+          '<p style="font-size:14px;color:var(--slate);margin:0 0 18px">Archive « ' + btn.dataset.title + ' »? It will be hidden from the public site.</p>' +
           '<div style="display:flex;justify-content:flex-end;gap:10px">' +
-          '<button class="btn btn-ghost" onclick="SR.modal.close()">Annuler</button>' +
-          '<button class="btn btn-danger" id="confirmArchive">Archiver</button></div>',
-          { title: 'Archiver l\'offre' }
+          '<button class="btn btn-ghost" onclick="SR.modal.close()">Cancel</button>' +
+          '<button class="btn btn-danger" id="confirmArchive">Archive</button></div>',
+          { title: 'Archive job offer' }
         );
         document.getElementById('confirmArchive').addEventListener('click', async function () {
           try { await SR.api.del('/job-offers/' + id); } catch (err) { if (!USE_MOCKS) throw err; }
           jobs = jobs.filter(function (j) { return j.id !== id; });
           SR.modal.close();
           render();
-          toast('Offre archivée', 'success');
+          toast('Job offer archived', 'success');
         });
       });
 
       if (searchInput) searchInput.addEventListener('input', debounce(render));
       if (statusSelect) statusSelect.addEventListener('change', render);
 
-      SR.load('/job-offers', SR.mock.jobs).then(function (data) {
+      Promise.all([
+        SR.load('/job-offers', SR.mock.jobs),
+        SR.load('/dashboard/stats', SR.mock.dashboard),
+      ]).then(function (results) {
+        const data = results[0];
         jobs = Array.isArray(data) ? data : (data && data.data) ? data.data : [];
+        const d = results[1] || {};
+        (d.funnels || []).forEach(function (f) { funnels[f.job_offer_id] = f; });
         render();
       }).catch(function () { render(); });
     },
@@ -1074,12 +1223,12 @@
           if (mode === 'edit') await SR.api.put('/job-offers/' + jobId, payload);
           else await SR.api.post('/job-offers', payload);
           toast('Offre ' + (mode === 'edit' ? 'modifiée' : 'publiée') + ' avec succès', 'success');
-          setTimeout(function () { window.location.href = '/recruteur/offres'; }, 700);
+          setTimeout(function () { window.location.href = '/recruiter/jobs'; }, 700);
         } catch (err) {
           SR.helpers.setLoading(btn, false);
           if (USE_MOCKS) {
             toast('Offre ' + (mode === 'edit' ? 'modifiée' : 'publiée') + ' (démo)', 'success');
-            setTimeout(function () { window.location.href = '/recruteur/offres'; }, 700);
+            setTimeout(function () { window.location.href = '/recruiter/jobs'; }, 700);
             return;
           }
           showFormError(form, err.message || 'Erreur lors de l\'enregistrement');
@@ -1088,23 +1237,21 @@
     },
   };
 
-  /* ---------------- Recruiter: applications index (all / by job) ---------------- */
+  /* ---------------- Recruiter: applications pipeline (all / by job) ---------------- */
   SR.pages.recruiterApplications = {
     init: function () {
-      const tbody = document.getElementById('appsTbody');
-      if (!tbody) return;
+      const board = document.getElementById('kanbanBoard');
+      if (!board) return;
       const jobId = document.body.dataset.jobId === 'null' ? null : Number(document.body.dataset.jobId);
       const searchInput = document.getElementById('appsSearch');
-      const statusFilter = document.getElementById('appsStatusFilter');
-      const scoreFilter = document.getElementById('appsScoreFilter');
-      const selectAll = document.getElementById('appsSelectAll');
-      const batchBar = document.getElementById('batchBar');
-      const batchCount = document.getElementById('batchCount');
-      const batchStatus = document.getElementById('batchStatus');
-      const savedFilterSelect = document.getElementById('savedFilterSelect');
+      const totalEl = document.getElementById('appsTotal');
       const title = document.getElementById('appsTitle');
       let apps = [];
-      let selected = [];
+
+      const NEXT_STATUS = { received: 'interview', interview: 'accepted', accepted: null, refused: null };
+      const NEXT_LABEL = { received: 'Interview', interview: 'Accept' };
+      const VALID = { received: ['interview', 'refused'], interview: ['accepted', 'refused'], accepted: [], refused: [] };
+      const COL_DOTS = { received: 'var(--pink)', interview: 'var(--pink-light)', accepted: 'var(--success)', refused: 'var(--danger)' };
 
       function loadPath() {
         return jobId ? '/job-offers/' + jobId + '/applications' : '/applications';
@@ -1113,127 +1260,113 @@
         return SR.mock.applications(jobId);
       }
 
-      function render() {
+      function colApps(status) {
         const q = (searchInput.value || '').toLowerCase().trim();
-        const st = statusFilter.value;
-        const sc = scoreFilter.value ? Number(scoreFilter.value) : 0;
-        const list = apps.filter(function (a) {
+        return apps.filter(function (a) {
+          if (a.status !== status) return false;
+          if (!q) return true;
           const name = ((a.candidate && a.candidate.name) || '') + ' ' + ((a.candidate && a.candidate.email) || '');
-          const okQ = !q || name.toLowerCase().indexOf(q) !== -1;
-          const okS = !st || a.status === st;
-          const okSc = Number(a.matching_score) >= sc;
-          return okQ && okS && okSc;
+          return name.toLowerCase().indexOf(q) !== -1;
         });
-        if (!list.length) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--slate);padding:40px">Aucune candidature trouvée.</td></tr>';
-          selectAll.checked = false;
-          updateBatch();
+      }
+
+      function cardHtml(a) {
+        const next = NEXT_STATUS[a.status];
+        const nextBtn = next
+          ? '<button class="btn btn-sm kanban-move" data-id="' + a.id + '" data-next="' + next + '">→ ' + NEXT_LABEL[a.status] + '</button>' +
+            (a.status === 'interview' ? '' : '<button class="btn btn-sm btn-ghost-danger kanban-move" data-id="' + a.id + '" data-next="refused">Refuse</button>')
+          : '';
+        const name = (a.candidate && a.candidate.name) || 'Candidate';
+        const jobTxt = (jobId ? '' : (a.job_offer && a.job_offer.title)
+          ? '<div class="kanban-cand-job">' + escapeHtml(a.job_offer.title) + '</div>' : '');
+        return '<div class="kanban-card" draggable="true" data-id="' + a.id + '" data-status="' + a.status + '">' +
+          '<div class="kanban-card-top">' +
+          '<div style="display:flex;align-items:center;gap:10px">' + scoreRing(a.matching_score, 'sm') +
+          '<div><a class="kanban-cand-name" href="/recruiter/applications/' + a.id + '">' + escapeHtml(name) + '</a>' +
+          jobTxt + '</div></div></div>' +
+          '<div class="kanban-tags">' + (a.tags || []).map(tagChip).join('') + '</div>' +
+          '<div class="kanban-card-foot">' + nextBtn + '</div>' +
+          '</div>';
+      }
+
+      function render() {
+        const cols = ['received', 'interview', 'accepted', 'refused'];
+        board.innerHTML = cols.map(function (st) {
+          const items = colApps(st);
+          const cards = items.length
+            ? items.map(cardHtml).join('')
+            : '<div class="kanban-empty">No applications here</div>';
+          return '<div class="kanban-col" data-status="' + st + '">' +
+            '<div class="kanban-col-head">' +
+            '<span class="kanban-col-title"><i class="kanban-col-dot" style="background:' + COL_DOTS[st] + '"></i> ' + STATUS_LABELS[st] + '</span>' +
+            '<span class="kanban-count">' + items.length + '</span></div>' +
+            cards + '</div>';
+        }).join('');
+        if (totalEl) {
+          totalEl.textContent = apps.length + ' application' + (apps.length === 1 ? '' : 's');
+        }
+        SR.kanban.markDraggable(board);
+      }
+
+      function persist(id, status, done) {
+        SR.api.put('/applications/' + id + '/status', { status: status }).then(function () {
+          toast('Status updated', 'success');
+          if (done) done(true);
+        }).catch(function (err) {
+          // A 422 is a real state-machine rejection from the server — surface it
+          // even in mock mode instead of silently accepting the optimistic move.
+          if (err && err.status === 422) {
+            toast(err.message || 'Unable to update the status', 'error');
+            if (done) done(false);
+            return;
+          }
+          if (USE_MOCKS) { if (done) done(true); return; }
+          if (done) done(false);
+          toast(err.message || 'Unable to update the status', 'error');
+        });
+      }
+
+      board.addEventListener('click', function (e) {
+        const btn = e.target.closest('.kanban-move');
+        if (!btn) return;
+        const id = Number(btn.dataset.id);
+        const next = btn.dataset.next;
+        const app = apps.find(function (a) { return a.id === id; });
+        if (!app) return;
+        const from = app.status;
+        if (!VALID[from] || VALID[from].indexOf(next) === -1) {
+          toast('Cannot move from ' + STATUS_LABELS[from] + ' to ' + STATUS_LABELS[next], 'error');
           return;
         }
-        tbody.innerHTML = list.map(function (a) {
-          const name = (a.candidate && a.candidate.name) || 'Candidat';
-          const email = (a.candidate && a.candidate.email) || '';
-          const jobTitle = (a.job_offer && a.job_offer.title) || '—';
-          return '<tr>' +
-            '<td><input type="checkbox" class="app-check" data-id="' + a.id + '"' + (selected.indexOf(a.id) !== -1 ? ' checked' : '') + ' aria-label="Sélectionner ' + escapeHtml(name) + '"></td>' +
-            '<td><div style="display:flex;align-items:center;gap:10px">' + avatar(name, 'sm') +
-            '<div><div style="font-weight:600;color:var(--ink)">' + escapeHtml(name) + '</div>' +
-            '<div class="mono" style="font-size:11.5px;color:var(--slate)">' + escapeHtml(email) + '</div></div></div></td>' +
-            '<td style="color:var(--ink)">' + escapeHtml(jobTitle) + '</td>' +
-            '<td>' + scoreRing(a.matching_score, 'sm') + '</td>' +
-            '<td>' + (a.tags || []).map(tagChip).join('') + '</td>' +
-            '<td>' + statusPill(a.status) + '</td>' +
-            '<td class="mono" style="color:var(--slate)">' + fmtDate(a.created_at) + '</td>' +
-            '<td style="text-align:right;white-space:nowrap"><a class="btn btn-sm btn-ghost" href="/recruteur/candidatures/' + a.id + '">Voir</a></td>' +
-            '</tr>';
-        }).join('');
-      }
-
-      function updateBatch() {
-        selected = selected.filter(function (id) { return apps.some(function (a) { return a.id === id; }); });
-        batchCount.textContent = selected.length + ' sélectionnée(s)';
-        batchBar.style.display = selected.length ? 'flex' : 'none';
-        const checks = Array.prototype.slice.call(tbody.querySelectorAll('.app-check'));
-        selectAll.checked = checks.length > 0 && checks.every(function (c) { return c.checked; });
-      }
-
-      tbody.addEventListener('change', function (e) {
-        const c = e.target.closest('.app-check');
-        if (!c) return;
-        const id = Number(c.dataset.id);
-        const i = selected.indexOf(id);
-        if (c.checked && i === -1) selected.push(id);
-        if (!c.checked && i !== -1) selected.splice(i, 1);
-        updateBatch();
-      });
-      if (selectAll) selectAll.addEventListener('change', function () {
-        Array.prototype.slice.call(tbody.querySelectorAll('.app-check')).forEach(function (c) {
-          c.checked = selectAll.checked;
-          const id = Number(c.dataset.id);
-          const i = selected.indexOf(id);
-          if (selectAll.checked && i === -1) selected.push(id);
-          if (!selectAll.checked && i !== -1) selected.splice(i, 1);
-        });
-        updateBatch();
-      });
-
-      document.getElementById('batchApply').addEventListener('click', async function () {
-        const status = batchStatus.value;
-        if (!status || !selected.length) return;
-        const n = selected.length;
-        try { await SR.api.put('/applications/status/batch', { ids: selected, status: status }); }
-        catch (err) { if (!USE_MOCKS) { toast(err.message, 'error'); return; } }
-        selected.forEach(function (id) {
-          const a = apps.find(function (x) { return x.id === id; });
-          if (a) a.status = status;
-        });
-        selected = [];
-        batchStatus.value = '';
+        app.status = next;
         render();
-        updateBatch();
-        toast('Statut mis à jour pour ' + n + ' candidature(s)', 'success');
-      });
-      document.getElementById('batchClear').addEventListener('click', function () {
-        selected = [];
-        batchStatus.value = '';
-        render();
-        updateBatch();
+        persist(id, next);
       });
 
-      if (searchInput) searchInput.addEventListener('input', debounce(function () { render(); updateBatch(); }));
-      if (statusFilter) statusFilter.addEventListener('change', function () { render(); updateBatch(); });
-      if (scoreFilter) scoreFilter.addEventListener('change', function () { render(); updateBatch(); });
-
-      // Saved filters dropdown
-      SR.load('/saved-filters', SR.mock.savedFilters).then(function (filters) {
-        filters = Array.isArray(filters) ? filters : [];
-        if (savedFilterSelect) {
-          filters.forEach(function (f) {
-            const o = document.createElement('option');
-            o.value = f.id;
-            o.textContent = f.name;
-            savedFilterSelect.appendChild(o);
-          });
-          savedFilterSelect.addEventListener('change', function () {
-            const f = filters.find(function (x) { return String(x.id) === savedFilterSelect.value; });
-            if (!f || !f.criteria) return;
-            if (statusFilter && f.criteria.status) { statusFilter.value = f.criteria.status; }
-            if (scoreFilter && f.criteria.min_score) { scoreFilter.value = String(f.criteria.min_score >= 80 ? 80 : f.criteria.min_score >= 60 ? 60 : 50); }
-            render();
-            updateBatch();
-            toast('Filtre « ' + f.name + ' » appliqué', 'info');
-          });
-        }
+      SR.kanban.enable(board, {
+        canDrop: function (from, to) {
+          return VALID[from] && VALID[from].indexOf(to) !== -1;
+        },
+        onOptimistic: function (card, to) {
+          const a = apps.find(function (x) { return String(x.id) === String(card.dataset.id); });
+          if (a) a.status = to;
+        },
+        onDrop: function (card, from, to, done) {
+          persist(Number(card.dataset.id), to, done);
+        },
       });
+
+      if (searchInput) searchInput.addEventListener('input', debounce(function () { render(); }));
+
+      if (jobId) {
+        SR.load('/job-offers/' + jobId, function () { return SR.mock.job(jobId); }).then(function (j) {
+          if (j && title) title.textContent = 'Pipeline — ' + j.title;
+        });
+      }
 
       SR.load(loadPath(), mockFn).then(function (data) {
-        apps = Array.isArray(data) ? data : [];
-        if (jobId && title) {
-          const j = SR.mock.job(jobId);
-          if (j) title.textContent = 'Candidatures — ' + j.title;
-        }
+        apps = Array.isArray(data) ? data : (data && data.data) ? data.data : [];
         render();
-        updateBatch();
       }).catch(function () { render(); });
     },
   };
@@ -1252,7 +1385,7 @@
         if (!a) { wrap.innerHTML = '<div class="card card-pad empty"><p>Candidature introuvable.</p></div>'; return; }
         app = a;
         const back = document.getElementById('appBackLink');
-        back.href = '/recruteur/offres/' + (a.job_offer ? a.job_offer.id : '') + '/candidatures';
+        back.href = '/recruiter/jobs/' + (a.job_offer ? a.job_offer.id : '') + '/applications';
         render();
       });
 
@@ -1275,7 +1408,7 @@
           '<div style="flex:1;min-width:200px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
           '<h2 style="margin:0">' + escapeHtml(name) + '</h2>' + statusPill(a.status) + '</div>' +
           '<div class="mono" style="color:var(--slate);font-size:12.5px">' + escapeHtml(email) + '</div>' +
-          '<div style="margin-top:6px;font-size:13.5px;color:var(--ink)">Postule à : <a href="/offres/' + job.id + '" style="color:var(--blue)">' + escapeHtml(job.title || '') + '</a></div>' +
+          '<div style="margin-top:6px;font-size:13.5px;color:var(--ink)">Applied to : <a href="/jobs/' + job.id + '" style="color:var(--blue)">' + escapeHtml(job.title || '') + '</a></div>' +
           badges.map(function (b) { return '<span class="tag tag-green">' + escapeHtml(b.type.replace('_', ' ')) + '</span>'; }).join('') +
           '</div>' +
           '<div style="text-align:center">' + scoreRing(a.matching_score) +
@@ -1456,7 +1589,7 @@
               avatar(nm, 'sm') + '<div style="flex:1">' + scoreRing(s.matching_score, 'sm') + '</div>' +
               '<div style="flex:2"><div style="font-weight:600;color:var(--ink)">' + escapeHtml(nm) + '</div>' +
               '<div class="mono" style="font-size:12px;color:var(--slate)">' + escapeHtml((s.job_offer && s.job_offer.title) || '') + '</div></div>' +
-              '<a class="btn btn-sm btn-ghost" href="/recruteur/candidatures/' + s.id + '">Voir</a></div>';
+              '<a class="btn btn-sm btn-ghost" href="/recruiter/applications/' + s.id + '">View</a></div>';
           }).join('') + '</div>';
         });
       }
@@ -1474,7 +1607,7 @@
       const back = document.getElementById('shortlistBack');
       if (job) {
         title.textContent = 'Shortlist — ' + job.title;
-        back.href = '/recruteur/offres/' + jobId + '/candidatures';
+        back.href = '/recruiter/jobs/' + jobId + '/applications';
       }
 
       function avgOf(a) {
@@ -1594,7 +1727,7 @@
         const ap = e.target.closest('[data-apply]');
         if (!ap) return;
         toast('Filtre appliqué — ouvert dans Candidatures', 'success');
-        window.location.href = '/recruteur/candidatures';
+        window.location.href = '/recruiter/applications';
       });
 
       if (form) form.addEventListener('submit', function (e) {
@@ -1689,6 +1822,7 @@
         if (document.getElementById('kvRole')) document.getElementById('kvRole').textContent = user.role === 'recruiter' ? 'Recruiter' : 'Candidate';
         if (document.getElementById('kvJoined')) document.getElementById('kvJoined').textContent = fmtDate(user.created_at);
       }
+      bindPasswordToggles(form);
 
       form.addEventListener('submit', async function (e) {
         e.preventDefault();
@@ -1751,7 +1885,7 @@
       }
 
       function render(list) {
-        if (!list.length) { box.innerHTML = '<div class="empty">Vous n\'avez pas encore postulé.<br><a class="btn btn-primary" style="margin-top:12px" href="/offres">Explorer les offres</a></div>'; return; }
+        if (!list.length) { box.innerHTML = '<div class="empty">You haven\'t applied yet.<br><a class="btn btn-primary" style="margin-top:12px" href="/jobs">Browse jobs</a></div>'; return; }
         box.innerHTML =
           '<table class="table"><thead><tr><th>Offre</th><th>Score</th><th>Mots-clés</th><th>Statut</th><th>Postulé le</th><th></th></tr></thead><tbody>' +
           list.map(function (a) {
@@ -1798,12 +1932,12 @@
         const job = SR.mock.job(jobId);
         if (!job) { summary.innerHTML = '<div class="empty">Offre introuvable.</div>'; return; }
         document.getElementById('applyJobTitle').textContent = job.title;
-        document.getElementById('applyBackLink').href = '/offres/' + jobId;
+        document.getElementById('applyBackLink').href = '/jobs/' + jobId;
         summary.innerHTML =
           '<div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap">' +
           '<div><h3 style="margin:0 0 6px">' + escapeHtml(job.title) + '</h3>' +
           '<div class="mono" style="color:var(--slate);font-size:13px">' + escapeHtml(job.contract_type) + ' · ' + fmtSalary(job.salary) +
-          ' · Postulez avant le ' + fmtDate(job.deadline) + '</div></div>' +
+          ' · Apply before ' + fmtDate(job.deadline) + '</div></div>' +
           '<div style="display:flex;gap:6px;flex-wrap:wrap;align-content:flex-start">' +
           (job.tech_stack_array || []).map(function (t) { return '<span class="chip">' + escapeHtml(t) + '</span>'; }).join('') + '</div></div>' +
           '<p style="margin:14px 0 0;color:var(--ink);line-height:1.6">' + escapeHtml((job.description || '').split('\n\n')[0]) + '</p>';
@@ -1862,7 +1996,7 @@
           '<div class="score-ring-wrap" style="margin:0 auto 14px">' + scoreRing(82) + '</div>' +
           '<h3 style="margin:0 0 6px">Candidature envoyée !</h3>' +
           '<p style="color:var(--slate);font-size:14px;margin:0 0 18px">Le score de compatibilité est calculé en arrière-plan.<br>Suivez son évolution dans « Mes candidatures ».</p>' +
-          '<button class="btn btn-primary" onclick="window.location.href=\'/mes-candidatures\'">Voir mes candidatures</button></div>',
+          '<button class="btn btn-primary" onclick="window.location.href=\'/my-applications\'">View my applications</button></div>',
           { title: 'Candidature envoyée' }
         );
         form.reset();
@@ -1870,7 +2004,7 @@
       });
 
       document.getElementById('applyCancel').addEventListener('click', function () {
-        window.location.href = '/offres/' + jobId;
+        window.location.href = '/jobs/' + jobId;
       });
     },
   };
@@ -1909,7 +2043,7 @@
               ? '<div style="display:flex;gap:6px">' +
                 '<button class="btn btn-sm" data-complete="' + iv.id + '" type="button">Compléter</button>' +
                 '<button class="btn btn-sm btn-ghost-danger" data-cancel="' + iv.id + '" type="button">Annuler</button></div>'
-              : '<a class="btn btn-sm btn-ghost" href="/recruteur/candidatures/' + iv.application_id + '">Ouvrir</a>';
+              : '<a class="btn btn-sm btn-ghost" href="/recruiter/applications/' + iv.application_id + '">Open</a>';
             return '<tr>' +
               '<td><div style="display:flex;align-items:center;gap:10px">' + avatar(iv.candidate_name, 'sm') +
               '<span style="font-weight:600;color:var(--ink)">' + escapeHtml(iv.candidate_name) + '</span></div></td>' +
@@ -2082,9 +2216,40 @@
     },
   };
 
+  /* ---------------- Reveal-on-scroll (global, all pages) ----------------
+     Adds .in-view to [data-reveal] elements. Safe by design:
+     - CSS only hides [data-reveal] under html.js, so no-JS stays visible
+     - reduced-motion or missing IntersectionObserver -> show immediately
+     - fallback timer forces in-viewport elements visible after 2s        */
+  function bindReveals() {
+    var els = document.querySelectorAll('[data-reveal]');
+    if (!els.length) return;
+    var show = function (el) { el.classList.add('in-view'); };
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      els.forEach(show);
+      return;
+    }
+    if (!('IntersectionObserver' in window)) {
+      els.forEach(show);
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) { show(entry.target); io.unobserve(entry.target); }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    els.forEach(function (el) { io.observe(el); });
+    setTimeout(function () {
+      els.forEach(function (el) {
+        if (!el.classList.contains('in-view') && el.getBoundingClientRect().top < window.innerHeight) show(el);
+      });
+    }, 2000);
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     bindGlobalSearch();
     bindSidebarUser();
+    bindReveals();
     dispatch();
   });
 })();

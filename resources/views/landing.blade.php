@@ -290,29 +290,6 @@
   (function () {
     'use strict';
 
-    /* ---- Scroll reveals (IO, GPU-safe, respects reduced motion) ---- */
-    (function reveal() {
-      var els = document.querySelectorAll('[data-reveal]');
-      if (!els.length) return;
-      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        els.forEach(function (el) { el.classList.add('in-view'); });
-        return;
-      }
-      if (!('IntersectionObserver' in window)) {
-        els.forEach(function (el) { el.classList.add('in-view'); });
-        return;
-      }
-      var io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('in-view');
-            io.unobserve(entry.target);
-          }
-        });
-      }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
-      els.forEach(function (el) { io.observe(el); });
-    })();
-
     /* ---- Demo data: 12 sample candidates ---- */
     var DEMO_APPS = [      { id: 1,  name: 'Sara El Amrani', role: 'Laravel Developer',   status: 'interview', score: 92, matched: ['PHP', 'Laravel', 'MySQL'], missing: ['Docker'], tag: 'Prioritaire' },
       { id: 2,  name: 'Amine Tazi',     role: 'Senior Laravel Dev',  status: 'interview', score: 88, matched: ['PHP', 'Laravel'],        missing: ['Docker', 'Git'], tag: '' },

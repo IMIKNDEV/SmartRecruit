@@ -22,7 +22,7 @@
 
                 <div class="form-group">
                     <label class="form-label" for="email">Email address</label>
-                    <input class="input" type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" required>
+                    <input class="input" type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" required autofocus>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="password">Password</label>
@@ -41,14 +41,19 @@
 
         <div class="mt-5 rounded-[24px] border border-line bg-surface/70 p-5">
             <p class="text-xs font-bold uppercase tracking-[0.14em] text-body/70">Demo accounts</p>
+            <p class="mt-1 text-xs text-body/60">Click a row to fill the form.</p>
             <ul class="mt-3 space-y-2 text-sm font-medium text-body">
-                <li class="flex items-center justify-between gap-3">
-                    <span class="flex items-center gap-2"><span class="size-2 rounded-full bg-accent"></span>Recruiter</span>
-                    <span class="mono text-xs text-dark">recruiter@smartrecruit.test</span>
+                <li>
+                    <button type="button" data-demo-email="recruiter@smartrecruit.test" data-demo-password="password" class="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-white px-3.5 py-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-accent hover:shadow-tint">
+                        <span class="flex items-center gap-2"><span class="size-2 rounded-full bg-accent"></span>Recruiter</span>
+                        <span class="mono text-xs text-dark">recruiter@smartrecruit.test</span>
+                    </button>
                 </li>
-                <li class="flex items-center justify-between gap-3">
-                    <span class="flex items-center gap-2"><span class="size-2 rounded-full bg-section-green"></span>Candidate</span>
-                    <span class="mono text-xs text-dark">salma@smartrecruit.test</span>
+                <li>
+                    <button type="button" data-demo-email="salma@smartrecruit.test" data-demo-password="password" class="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-white px-3.5 py-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-accent hover:shadow-tint">
+                        <span class="flex items-center gap-2"><span class="size-2 rounded-full bg-section-green"></span>Candidate</span>
+                        <span class="mono text-xs text-dark">salma@smartrecruit.test</span>
+                    </button>
                 </li>
                 <li class="text-xs text-body/60">Password for both: <span class="mono">password</span></li>
             </ul>

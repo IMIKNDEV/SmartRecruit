@@ -9,8 +9,10 @@
     <meta property="og:description" content="Explore open positions on SmartRecruit — simplified applications with AI scoring.">
     <meta property="og:type" content="website">
     <meta property="og:locale" content="en_US">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236ebbff'/%3E%3Ctext x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='700' font-size='14'%3ESR%3C/text%3E%3C/svg%3E">
+    <meta property="og:image" content="{{ asset('logo.svg') }}">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <title>@yield('title', 'Job offers') | {{ config('app.name', 'SmartRecruit') }}</title>
+    <script>document.documentElement.classList.add('js');</script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-canvas text-dark antialiased" @yield('body_attrs')>
@@ -19,7 +21,7 @@
 <header class="sticky top-0 z-50 border-b border-line bg-canvas/85 backdrop-blur-md">
     <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <a href="/" class="flex items-center gap-2.5" aria-label="SmartRecruit home">
-            <span class="grid size-9 place-items-center rounded-[14px] bg-accent text-sm font-bold text-dark">SR</span>
+            <img src="/favicon.svg" class="size-9 rounded-[12px]" alt="SmartRecruit logo" width="36" height="36">
             <span class="text-lg font-semibold tracking-tight">SmartRecruit</span>
         </a>
         <nav class="flex items-center gap-2 sm:gap-6" aria-label="Main navigation">
@@ -37,9 +39,8 @@
 <footer class="bg-dark text-white">
     <div class="mx-auto max-w-6xl px-6 py-12">
         <div class="flex flex-col items-start justify-between gap-8 sm:flex-row sm:items-center">
-            <a href="/" class="flex items-center gap-2.5" aria-label="SmartRecruit home">
-                <span class="grid size-9 place-items-center rounded-[14px] bg-accent text-sm font-bold text-dark">SR</span>
-                <span class="text-lg font-semibold tracking-tight text-white">SmartRecruit</span>
+            <a href="/" class="flex items-center" aria-label="SmartRecruit home">
+                <img src="/logo-white.svg" class="h-9 w-auto" alt="SmartRecruit logo" width="160" height="36">
             </a>
             <nav class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-white/60" aria-label="Footer navigation">
                 <a href="{{ route('jobs.index') }}" class="transition-colors hover:text-white">Jobs</a>

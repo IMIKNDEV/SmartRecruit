@@ -22,7 +22,7 @@
 
                 <div class="form-group">
                     <label class="form-label" for="name">Full name</label>
-                    <input class="input" type="text" id="name" name="name" placeholder="Ayoub Idbelhaj" autocomplete="name" required>
+                    <input class="input" type="text" id="name" name="name" placeholder="Ayoub Idbelhaj" autocomplete="name" required autofocus>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="email">Email address</label>
@@ -47,7 +47,7 @@
                 <div class="form-row grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div class="form-group">
                         <label class="form-label" for="password">Password</label>
-                        <input class="input" type="password" id="password" name="password" placeholder="8+ characters" autocomplete="new-password" required>
+                        <input class="input" type="password" id="password" name="password" placeholder="8+ characters" autocomplete="new-password" minlength="8" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="password_confirmation">Confirm</label>
