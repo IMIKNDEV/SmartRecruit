@@ -254,6 +254,151 @@
   };
   SR.api = api;
 
+  /* ---------------- Kanban DnD (reusable) ----------------
+     Usage:
+       SR.kanban.enable(boardEl, {
+         onDrop(card, fromStatus, toStatus, done)  // persist; call done(true|false)
+         canDrop(fromStatus, toStatus)             // optional state-machine guard
+         onOptimistic(card, toStatus)              // optional local state sync (demo)
+       });
+     Cards:   .kanban-card[draggable=true][data-id][data-status]
+     Columns: .kanban-col with .kanban-count in the head.
+  */
+  const kanban = {
+    dragId: null,
+    fromStatus: null,
+    fromCol: null,
+    beforeEl: null,
+
+    enable: function (board, opts) {
+      if (!board || board.dataset.kanban) return;
+      board.dataset.kanban = '1';
+      this.bind(board, opts || {});
+    },
+
+    /* Mark every card draggable — call again after a re-render. */
+    markDraggable: function (board) {
+      if (!board) return;
+      board.querySelectorAll('.kanban-card').forEach(function (c) {
+        c.draggable = true;
+      });
+    },
+
+    bind: function (board, opts) {
+      const cardsSel = opts.cards || '.kanban-card';
+      const colSel = opts.cols || '.kanban-col';
+      const self = this;
+
+      function clearOver() {
+        board.querySelectorAll(colSel).forEach(function (c) {
+          c.classList.remove('drag-over');
+        });
+        board.querySelectorAll('.drop-ghost').forEach(function (g) {
+          g.remove();
+        });
+      }
+
+      function refreshCounters() {
+        board.querySelectorAll(colSel).forEach(function (col) {
+          const count = col.querySelector('.kanban-count');
+          if (count) count.textContent = String(col.querySelectorAll(cardsSel).length);
+        });
+      }
+
+      board.addEventListener('dragstart', function (e) {
+        const card = e.target.closest(cardsSel);
+        if (!card) return;
+        self.dragId = card.dataset.id;
+        self.fromStatus = card.dataset.status;
+        self.fromCol = card.closest(colSel);
+        self.beforeEl = card.nextElementSibling;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', String(card.dataset.id)); } catch (err) {}
+      });
+
+      board.addEventListener('dragover', function (e) {
+        const col = e.target.closest(colSel);
+        if (!col) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        col.classList.add('drag-over');
+        // Positional drop ghost inside the target column
+        const ghost = col.querySelector('.drop-ghost');
+        const cards = Array.prototype.slice.call(col.querySelectorAll(cardsSel));
+        const after = cards.find(function (c) {
+          const r = c.getBoundingClientRect();
+          return e.clientY < r.top + r.height / 2;
+        }) || null;
+        if (ghost) ghost.remove();
+        const g = document.createElement('div');
+        g.className = 'drop-ghost';
+        if (after) col.insertBefore(g, after); else col.appendChild(g);
+      });
+
+      board.addEventListener('dragleave', function (e) {
+        if (!e.relatedTarget || !board.contains(e.relatedTarget)) clearOver();
+      });
+
+      board.addEventListener('drop', function (e) {
+        e.preventDefault();
+        const col = e.target.closest(colSel);
+        clearOver();
+        const card = board.querySelector(cardsSel + '.dragging');
+        if (!col || !card) return;
+        const toStatus = col.dataset.status || col.dataset.col;
+        const fromStatus = card.dataset.status;
+
+        if (fromStatus === toStatus) {
+          card.classList.remove('dragging');
+          refreshCounters();
+          return;
+        }
+
+        const guard = opts.canDrop ? opts.canDrop(fromStatus, toStatus) : true;
+        const reject = function (msg) {
+          if (self.fromCol) self.fromCol.insertBefore(card, self.beforeEl);
+          card.classList.remove('dragging');
+          refreshCounters();
+          if (msg) toast(msg, 'error');
+        };
+
+        if (!guard) {
+          reject('Cannot move from ' + fromStatus + ' to ' + toStatus);
+          return;
+        }
+
+        // Optimistic move
+        col.appendChild(card);
+        card.dataset.status = toStatus;
+        card.classList.remove('dragging');
+        card.classList.add('drop-in');
+        setTimeout(function () { card.classList.remove('drop-in'); }, 400);
+        refreshCounters();
+
+        if (opts.onOptimistic) opts.onOptimistic(card, toStatus);
+
+        if (opts.onDrop) {
+          opts.onDrop(card, fromStatus, toStatus, function (ok) {
+            if (ok === false) reject();
+          });
+        }
+      });
+
+      board.addEventListener('dragend', function (e) {
+        const card = e.target.closest(cardsSel);
+        if (card) card.classList.remove('dragging');
+        clearOver();
+        refreshCounters();
+        self.dragId = null;
+        self.fromStatus = null;
+        self.fromCol = null;
+        self.beforeEl = null;
+      });
+    },
+  };
+  SR.kanban = kanban;
+
   /* ---------------- Mock data ---------------- */
   const MOCK_JOBS = [
     { id: 1, title: 'Développeur Laravel Senior', description: "Nous recherchons un développeur Laravel senior pour rejoindre notre équipe produit. Vous serez responsable de la conception et du développement de fonctionnalités backend critiques, de l'optimisation des performances et du mentorat des développeurs juniors.\n\nMissions :\n- Concevoir et développer des API REST robustes avec Laravel\n- Modéliser et optimiser les bases de données MySQL\n- Participer aux revues de code et au suivi qualité\n- Accompagner les développeurs juniors dans leur montée en compétences\n\nProfil : 5+ ans d'expérience PHP/Laravel, maîtrise de MySQL, Git et Docker.", tech_stack: 'PHP, Laravel, MySQL, Docker, Git', tech_stack_array: ['PHP', 'Laravel', 'MySQL', 'Docker', 'Git'], contract_type: 'CDI', salary: 18000, deadline: '2026-09-30', status: 'active', applications_count: 24, created_at: '2026-07-20T10:00:00+00:00' },

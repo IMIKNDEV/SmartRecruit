@@ -46,6 +46,7 @@
   <path d="M20 6 9 17l-5-5"/>
 @break
 @case('x')
+@case('x-mark')
   <path d="M18 6 6 18M6 6l12 12"/>
 @break
 @case('chevron-down')
