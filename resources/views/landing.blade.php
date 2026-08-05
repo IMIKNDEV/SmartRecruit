@@ -1,610 +1,281 @@
 @extends('layouts.guest')
 
-@section('title', 'Recrutement intelligent')
+@section('title', 'Hire for growth')
 
-@section('body_attrs')
- data-page="landing"
-@endsection
+@section('body_attrs') data-page="landing" @endsection
 
 @section('content')
-<style>
-/* ---- Landing scoped premium layer (brand tokens only) ---- */
-html { scroll-behavior: smooth; }
-body[data-page="landing"] { --ease: cubic-bezier(0.32, 0.72, 0, 1); }
+{{-- ============================================================
+     HERO — centered copy + interactive Kanban demo (Teamtailor)
+============================================================ --}}
+<section class="grain relative overflow-hidden bg-canvas pb-16 pt-16 sm:pt-20" aria-label="Introduction">
+    <div class="mx-auto max-w-6xl px-6 text-center">
+        <span data-reveal class="inline-flex items-center gap-2 rounded-pill border border-line bg-white px-4 py-1.5 text-xs font-semibold tracking-wide text-body">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-textaccent" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z"/></svg>
+            AI-powered candidate matching
+        </span>
 
-/* Eyebrow */
-body[data-page="landing"] .lp-eyebrow {
-  background: var(--white);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-sm);
-  padding: 8px 18px 8px 10px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: .02em;
-  text-transform: none;
-  color: var(--slate);
-}
-body[data-page="landing"] .lp-eyebrow .eyebrow-dot {
-  width: 8px; height: 8px;
-  box-shadow: 0 0 0 4px rgba(240, 19, 90, 0.14), 0 0 12px rgba(240, 19, 90, 0.5);
-}
+        <h1 data-reveal class="heading-display mx-auto mt-6 max-w-4xl">
+            Hire for <span class="relative inline-block">
+                growth.
+                <svg class="swosh" viewBox="0 0 220 40" fill="none" aria-hidden="true" preserveAspectRatio="none">
+                    <path d="M8 30C45 8 120 6 212 18" stroke="#f43f85" stroke-width="7" stroke-linecap="round"/>
+                </svg>
+            </span>
+        </h1>
 
-/* Hero copy */
-body[data-page="landing"] .lp-hero-copy h1 {
-  letter-spacing: -0.03em;
-  text-wrap: balance;
-  font-weight: 800;
-}
-body[data-page="landing"] .lp-hero-copy h1 .pink-word {
-  background: linear-gradient(120deg, var(--pink), var(--pink-dark));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-}
-body[data-page="landing"] .lp-hero-sub {
-  font-size: 19px;
-  color: var(--slate);
-  max-width: 500px;
-}
+        <p data-reveal class="mx-auto mt-6 max-w-2xl text-lg font-medium text-body sm:text-xl">
+            The ATS loved by candidates and recruiters — with <span class="relative inline-block">
+                <span class="relative z-10 font-semibold text-dark">AI</span>
+                <svg class="swosh" viewBox="0 0 80 24" fill="none" aria-hidden="true" preserveAspectRatio="none">
+                    <path d="M6 18C24 8 52 6 74 12" stroke="#6ebbff" stroke-width="5" stroke-linecap="round"/>
+                </svg>
+            </span> at the core.
+        </p>
 
-/* Primary CTA — button-in-button arrow island */
-body[data-page="landing"] .lp-hero-cta .btn-primary {
-  padding: 12px 12px 12px 30px;
-  gap: 16px;
-  font-size: 16px;
-  box-shadow: var(--shadow-glow);
-  transition: transform .4s var(--ease), background .3s var(--ease), box-shadow .4s var(--ease);
-}
-body[data-page="landing"] .lp-hero-cta .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 34px rgba(240, 19, 90, 0.30); }
-body[data-page="landing"] .lp-cta-arrow {
-  width: 40px; height: 40px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.22);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: transform .4s var(--ease), background .3s var(--ease);
-}
-body[data-page="landing"] .lp-cta-arrow svg { width: 17px; height: 17px; }
-body[data-page="landing"] .btn-primary:hover .lp-cta-arrow { transform: translateX(3px); background: rgba(255, 255, 255, 0.34); }
-body[data-page="landing"] .btn-primary:active .lp-cta-arrow { transform: translateX(5px); }
-body[data-page="landing"] .lp-hero-cta .btn-ghost {
-  border-color: var(--line-strong);
-  color: var(--ink);
-  background: var(--white);
-  transition: border-color .3s var(--ease), color .3s var(--ease), transform .4s var(--ease);
-}
-body[data-page="landing"] .lp-hero-cta .btn-ghost:hover { border-color: var(--pink); color: var(--pink); transform: translateY(-2px); }
-body[data-page="landing"] .lp-hero-micro {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 22px;
-  font-size: 13px;
-  color: var(--slate);
-}
-body[data-page="landing"] .lp-hero-micro .mono { font-size: 11.5px; color: var(--pink-dark); }
+        <div data-reveal class="mt-9 flex flex-wrap items-center justify-center gap-3">
+            <x-btn href="{{ route('register') }}" size="lg">Get started</x-btn>
+            <x-btn href="{{ route('jobs.index') }}" variant="ghost" size="lg">Explore jobs</x-btn>
+        </div>
+        <p data-reveal class="mt-4 text-xs font-medium text-body/70">
+            Free to start &middot; recruiter account ready in 1 minute &middot; no credit card
+        </p>
+    </div>
 
-/* Hero visual — double bezel (outer shell + inner core) */
-body[data-page="landing"] .lp-hero-shell {
-  padding: 12px;
-  border-radius: calc(var(--radius-lg) + 12px);
-  background: linear-gradient(160deg, rgba(252, 228, 236, 0.9), rgba(254, 243, 226, 0.65));
-  border: 1px solid rgba(240, 19, 90, 0.12);
-  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  width: min(400px, 94%);
-}
-body[data-page="landing"] .lp-visual-card {
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--line);
-  background: var(--white);
-  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  padding: 22px;
-}
-body[data-page="landing"] .lp-hero-kanban-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-body[data-page="landing"] .lp-hero-kicker {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
-  color: var(--slate); letter-spacing: .03em;
-}
-body[data-page="landing"] .lp-hero-score { box-shadow: var(--shadow-glow); }
-body[data-page="landing"] .lp-hero-kanban .lp-mini-col {
-  background: var(--kanban-col);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-sm);
-  border-radius: var(--radius);
-  padding: 12px 12px;
-}
-body[data-page="landing"] .lp-hero-kanban .lp-mini-col b { font-size: 14px; }
-body[data-page="landing"] .lp-visual-badge {
-  top: -14px; right: -6px;
-  background: var(--white);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-md);
-  padding: 10px 16px;
-  font-size: 12.5px;
-}
-body[data-page="landing"] .lp-visual-badge::before {
-  content: '';
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--success);
-  box-shadow: 0 0 0 4px var(--success-bg);
-  flex-shrink: 0;
-}
-body[data-page="landing"] .lp-visual-badge svg { display: none; }
-
-/* Stats band */
-body[data-page="landing"] .lp-stats { padding: 0 0 96px; }
-body[data-page="landing"] .lp-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-}
-body[data-page="landing"] .lp-stat {
-  background: var(--white);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-card);
-  padding: 26px 22px;
-  box-shadow: var(--shadow-sm);
-  transition: transform .4s var(--ease), box-shadow .4s var(--ease);
-}
-body[data-page="landing"] .lp-stat:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
-body[data-page="landing"] .lp-stat .mono {
-  display: block;
-  font-size: 34px;
-  font-weight: 600;
-  color: var(--ink);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  margin-bottom: 10px;
-}
-body[data-page="landing"] .lp-stat .mono em { font-style: normal; font-size: 18px; color: var(--pink); }
-body[data-page="landing"] .lp-stat-label { font-size: 13.5px; color: var(--slate); line-height: 1.45; }
-body[data-page="landing"] .lp-stat-label b { color: var(--ink); font-weight: 600; }
-
-/* Section heads */
-body[data-page="landing"] .lp-section-head { text-align: left; margin: 0 0 44px; }
-body[data-page="landing"] .lp-section-head.center { text-align: center; margin-inline: auto; }
-body[data-page="landing"] .lp-section-kicker {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
-  letter-spacing: .16em; text-transform: uppercase;
-  color: var(--pink-dark);
-  margin-bottom: 14px;
-}
-body[data-page="landing"] .lp-section-kicker::before { content: ''; width: 22px; height: 1px; background: var(--pink); }
-body[data-page="landing"] .lp-section-head h2 { font-size: clamp(30px, 3.6vw, 40px); letter-spacing: -0.02em; margin: 0 0 16px; text-wrap: balance; }
-body[data-page="landing"] .lp-section-head p { color: var(--slate); font-size: 16.5px; margin: 0; line-height: 1.6; }
-
-/* Features — asymmetric zig-zag */
-body[data-page="landing"] .lp-features { padding: 96px 0 40px; }
-body[data-page="landing"] .lp-feature-stack { display: grid; gap: 26px; }
-body[data-page="landing"] .lp-feature-row {
-  display: grid;
-  grid-template-columns: 1.02fr 0.98fr;
-  gap: clamp(32px, 6vw, 84px);
-  align-items: center;
-  background: var(--white);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  padding: clamp(28px, 4.5vw, 56px);
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow .5s var(--ease), transform .5s var(--ease);
-}
-body[data-page="landing"] .lp-feature-row:hover { box-shadow: var(--shadow-lg); transform: translateY(-3px); }
-body[data-page="landing"] .lp-feature-row.flip .lp-feature-visual { order: -1; }
-body[data-page="landing"] .lp-feature-icon {
-  width: 48px; height: 48px;
-  border-radius: var(--radius);
-  background: var(--pink-soft);
-  color: var(--pink);
-  display: inline-flex; align-items: center; justify-content: center;
-  margin-bottom: 20px;
-  box-shadow: inset 0 0 0 1px rgba(240, 19, 90, 0.12);
-}
-body[data-page="landing"] .lp-feature-icon svg { width: 22px; height: 22px; }
-body[data-page="landing"] .lp-feature-copy h3 { font-size: 24px; letter-spacing: -0.015em; margin: 0 0 12px; text-wrap: balance; }
-body[data-page="landing"] .lp-feature-copy p { font-size: 15.5px; color: var(--slate); line-height: 1.65; margin: 0; max-width: 46ch; }
-body[data-page="landing"] .lp-feature-link {
-  display: inline-flex; align-items: center; gap: 8px;
-  margin-top: 18px; font-weight: 600; font-size: 14px; color: var(--pink);
-  transition: gap .3s var(--ease);
-}
-body[data-page="landing"] .lp-feature-link:hover { gap: 12px; color: var(--pink-dark); }
-body[data-page="landing"] .lp-feature-link svg { width: 15px; height: 15px; }
-
-/* Feature visuals */
-body[data-page="landing"] .lp-fv {
-  background: var(--pink-pale);
-  border: 1px solid rgba(240, 19, 90, 0.10);
-  border-radius: var(--radius-card);
-  padding: 22px;
-  display: flex; flex-direction: column; gap: 14px;
-}
-body[data-page="landing"] .lp-fv-track { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-body[data-page="landing"] .lp-fv-track .fv-arrow { color: var(--pink-light); }
-body[data-page="landing"] .lp-fv-track .fv-arrow svg { width: 15px; height: 15px; }
-body[data-page="landing"] .lp-fv-note { font-family: var(--font-mono); font-size: 12px; color: var(--slate); }
-body[data-page="landing"] .lp-fv-note b { color: var(--pink-dark); }
-body[data-page="landing"] .lp-fv-score { flex-direction: row; align-items: center; justify-content: center; gap: 22px; }
-body[data-page="landing"] .lp-fv-ring {
-  width: 104px; height: 104px; flex-shrink: 0;
-  border-radius: 50%;
-  background: conic-gradient(var(--pink) 82%, var(--line) 82%);
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: var(--shadow-glow);
-}
-body[data-page="landing"] .lp-fv-ring::before {
-  content: '';
-  position: absolute;
-  width: 80px; height: 80px;
-  border-radius: 50%;
-  background: var(--white);
-}
-body[data-page="landing"] .lp-fv-ring-inner {
-  position: relative;
-  z-index: 1;
-  text-align: center;
-  line-height: 1;
-}
-body[data-page="landing"] .lp-fv-ring-inner b { font-size: 26px; font-weight: 600; color: var(--ink); }
-body[data-page="landing"] .lp-fv-ring-inner span { display: block; margin-top: 4px; font-size: 11px; color: var(--slate); }
-body[data-page="landing"] .lp-fv-kw { display: flex; flex-wrap: wrap; gap: 8px; max-width: 220px; align-content: center; }
-body[data-page="landing"] .lp-fv-scores { display: flex; gap: 10px; }
-body[data-page="landing"] .lp-fv-scores .mono {
-  background: var(--white);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  padding: 7px 13px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--ink);
-  box-shadow: var(--shadow-sm);
-}
-body[data-page="landing"] .lp-fv-bar { height: 10px; border-radius: 6px; background: var(--kanban-col); overflow: hidden; }
-body[data-page="landing"] .lp-fv-bar i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--pink), var(--pink-light)); }
-
-/* How it works */
-body[data-page="landing"] .lp-how { padding: 96px 0 20px; }
-body[data-page="landing"] .lp-how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-body[data-page="landing"] .lp-how-step {
-  border: 1px solid var(--line);
-  background: var(--white);
-  border-radius: var(--radius-card);
-  padding: 30px 26px;
-  position: relative;
-  box-shadow: var(--shadow-sm);
-  transition: transform .4s var(--ease);
-}
-body[data-page="landing"] .lp-how-step:hover { transform: translateY(-3px); }
-body[data-page="landing"] .lp-how-num {
-  position: absolute;
-  top: -14px; left: 24px;
-  width: 34px; height: 34px;
-  border-radius: 50%;
-  background: var(--pink);
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 600;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: var(--shadow-glow);
-}
-body[data-page="landing"] .lp-how-step h3 { font-size: 17px; margin: 8px 0 8px; }
-body[data-page="landing"] .lp-how-step p { font-size: 13.5px; color: var(--slate); margin: 0; line-height: 1.55; }
-
-/* CTA band — warm pink-glow */
-body[data-page="landing"] .lp-cta { padding: 96px 0 48px; }
-body[data-page="landing"] .lp-cta-card {
-  border: 1px solid rgba(240, 19, 90, 0.16);
-  border-radius: 32px;
-  padding: clamp(48px, 7vw, 88px) clamp(24px, 6vw, 72px);
-  background:
-    radial-gradient(640px 320px at 50% -20%, rgba(240, 19, 90, 0.16), transparent 70%),
-    radial-gradient(420px 260px at 12% 110%, rgba(252, 228, 236, 0.8), transparent 65%),
-    var(--white);
-  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-body[data-page="landing"] .lp-cta-card::before {
-  content: '';
-  position: absolute;
-  inset: -50%;
-  background: radial-gradient(closest-side at 50% 0%, rgba(240, 19, 90, 0.14), transparent 70%);
-  pointer-events: none;
-}
-body[data-page="landing"] .lp-cta-card h2 { position: relative; font-size: clamp(30px, 4vw, 44px); letter-spacing: -0.02em; margin: 0 0 16px; text-wrap: balance; }
-body[data-page="landing"] .lp-cta-card p { position: relative; color: var(--slate); font-size: 17px; max-width: 52ch; margin: 0 auto 34px; }
-body[data-page="landing"] .lp-cta-actions { position: relative; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-body[data-page="landing"] .lp-cta-actions .btn { box-shadow: var(--shadow-glow); }
-
-/* Trust strip */
-body[data-page="landing"] .lp-trust { padding: 34px 0 0; }
-body[data-page="landing"] .lp-trust-list { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; }
-body[data-page="landing"] .lp-trust-item {
-  display: inline-flex; align-items: center; gap: 10px;
-  font-size: 13.5px; color: var(--slate);
-  background: var(--white);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  padding: 10px 18px;
-  box-shadow: var(--shadow-sm);
-}
-body[data-page="landing"] .lp-trust-item svg { width: 16px; height: 16px; color: var(--pink); flex-shrink: 0; }
-
-/* Legal strip (complements the layout footer) */
-body[data-page="landing"] .lp-legal {
-  border-top: 1px solid var(--line);
-  margin-top: 56px;
-  padding: 22px 0 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-body[data-page="landing"] .lp-legal-nav { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; font-size: 13px; }
-body[data-page="landing"] .lp-legal-nav a { color: var(--slate); transition: color .3s var(--ease); }
-body[data-page="landing"] .lp-legal-nav a:hover { color: var(--pink); }
-body[data-page="landing"] .lp-legal-nav .lp-legal-disabled { color: var(--slate-light); cursor: default; }
-body[data-page="landing"] .lp-to-top {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
-  color: var(--ink);
-  transition: color .3s var(--ease), gap .3s var(--ease);
-}
-body[data-page="landing"] .lp-to-top:hover { color: var(--pink); gap: 12px; }
-body[data-page="landing"] .lp-to-top svg { width: 14px; height: 14px; }
-
-/* Scroll reveals (IntersectionObserver in scripts section) */
-body[data-page="landing"] [data-reveal] {
-  opacity: 0;
-  transform: translateY(26px);
-  transition: opacity .8s var(--ease), transform .8s var(--ease);
-  will-change: transform, opacity;
-}
-body[data-page="landing"] [data-reveal].is-in { opacity: 1; transform: none; }
-body[data-page="landing"] [data-reveal].rv-1 { transition-delay: .08s; }
-body[data-page="landing"] [data-reveal].rv-2 { transition-delay: .16s; }
-body[data-page="landing"] [data-reveal].rv-3 { transition-delay: .24s; }
-
-@media (max-width: 980px) {
-  body[data-page="landing"] .lp-feature-row { grid-template-columns: 1fr; gap: 28px; }
-  body[data-page="landing"] .lp-feature-row.flip .lp-feature-visual { order: 0; }
-  body[data-page="landing"] .lp-stats-grid { grid-template-columns: 1fr 1fr; }
-  body[data-page="landing"] .lp-how-grid { grid-template-columns: 1fr; gap: 26px; }
-}
-@media (max-width: 640px) {
-  body[data-page="landing"] .lp-stats-grid { grid-template-columns: 1fr; }
-  body[data-page="landing"] .lp-fv-score { flex-direction: column; }
-  body[data-page="landing"] .lp-legal { flex-direction: column; align-items: flex-start; }
-}
-@media (prefers-reduced-motion: reduce) {
-  body[data-page="landing"] [data-reveal] { opacity: 1; transform: none; transition: none; }
-}
-</style>
-
-<div id="top"></div>
-
-{{-- ================= HERO ================= --}}
-<section class="lp-hero">
-    <div class="container lp-hero-inner">
-        <div class="lp-hero-copy" data-reveal>
-            <span class="lp-eyebrow"><i class="eyebrow-dot"></i>Matching CV / offres propulsé par l'IA</span>
-            <h1>Recrutez plus vite,<br>avec plus de <span class="pink-word">précision</span>.</h1>
-            <p class="lp-hero-sub">
-                SmartRecruit centralise vos candidatures dans un pipeline visuel
-                et calcule automatiquement la compatibilité de chaque CV avec vos offres.
-            </p>
-            <div class="lp-hero-cta">
-                <a class="btn btn-primary btn-pill" href="{{ route('register') }}">
-                    Commencer gratuitement
-                    <span class="lp-cta-arrow">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                    </span>
-                </a>
-                <a class="btn btn-ghost btn-pill" href="{{ route('jobs.index') }}">Voir les offres</a>
+    {{-- Interactive Kanban demo board --}}
+    <div data-reveal class="mx-auto mt-14 max-w-6xl px-6">
+        <div class="overflow-hidden rounded-[32px] border border-line bg-white p-4 shadow-tint sm:p-6">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5">
+                    <span class="grid size-8 place-items-center rounded-[12px] bg-accent/20 text-sm font-bold text-textaccent">LR</span>
+                    <div>
+                        <p class="text-sm font-semibold leading-tight">Laravel Developer — Agadir</p>
+                        <p class="text-xs font-medium text-body/70">Senior Full-Stack · CDI</p>
+                    </div>
+                </div>
+                <span class="rounded-pill bg-surface px-3.5 py-1.5 text-xs font-semibold text-body">
+                    <span id="demoHints" class="mono">48 candidates</span>
+                </span>
             </div>
-            <p class="lp-hero-micro">
-                <span class="mono">sans carte bancaire</span> · compte recruteur créé en 1 minute
+
+            <div id="heroKanban" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Interactive Kanban demo — drag cards between stages">
+                {{-- Columns are rendered by the demo script so drag & drop works right away --}}
+            </div>
+
+            <p class="mt-4 flex items-center justify-center gap-2 text-center text-xs font-medium text-body/70">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+                Live demo — drag any card between stages, click a card to review it
             </p>
         </div>
-
-        <div class="lp-hero-visual rv-2" aria-hidden="true" data-reveal>
-            <div class="lp-visual-glow"></div>
-            <div class="lp-hero-shell">
-                <div class="lp-visual-card">
-                    <div class="lp-hero-kanban-head">
-                        <span class="lp-hero-kicker"><i class="lp-mini-dot" style="background:var(--pink)"></i>Développeur Laravel</span>
-                        <span class="pill pill-success lp-hero-score">92</span>
-                    </div>
-                    <div class="lp-mini-kanban lp-hero-kanban">
-                        <div class="lp-mini-col"><i class="lp-mini-dot" style="background:var(--pink)"></i><span>Reçu</span><b>24</b></div>
-                        <div class="lp-mini-col"><i class="lp-mini-dot" style="background:var(--pink-light)"></i><span>Entretien</span><b>8</b></div>
-                        <div class="lp-mini-col"><i class="lp-mini-dot" style="background:var(--success)"></i><span>Accepté</span><b>3</b></div>
-                    </div>
-                    <div class="lp-visual-chips">
-                        <span class="chip chip-ok">PHP</span>
-                        <span class="chip chip-ok">Laravel</span>
-                        <span class="chip chip-ok">MySQL</span>
-                        <span class="chip chip-no">Docker</span>
-                    </div>
-                    <div class="lp-visual-foot">
-                        <span class="tag tag-red">prioritaire</span>
-                        <span class="lp-visual-step"><b>Reçu → Entretien</b></span>
-                    </div>
-                </div>
-            </div>
-            <span class="lp-visual-badge">Score calculé par IA à l'upload</span>
-        </div>
     </div>
 </section>
 
-{{-- ================= STATS ================= --}}
-<section class="lp-stats" aria-label="Quelques chiffres">
-    <div class="container">
-        <div class="lp-stats-grid" data-reveal>
-            <div class="lp-stat">
-                <span class="mono">24<em> candidatures</em></span>
-                <span class="lp-stat-label">suivies en moyenne sur <b>chaque offre</b> publiée</span>
-            </div>
-            <div class="lp-stat">
-                <span class="mono">9,4<em> jours</em></span>
-                <span class="lp-stat-label">de délai moyen entre <b>l'offre et l'embauche</b></span>
-            </div>
-            <div class="lp-stat">
-                <span class="mono">82<em> / 100</em></span>
-                <span class="lp-stat-label">de <b>score de compatibilité</b> moyen sur les profils retenus</span>
-            </div>
-            <div class="lp-stat">
-                <span class="mono">4<em> statuts</em></span>
-                <span class="lp-stat-label">dans le pipeline : reçu, entretien, <b>accepté ou refusé</b></span>
-            </div>
-        </div>
-    </div>
-</section>
-
-{{-- ================= FEATURES (asymmetric zig-zag) ================= --}}
-<section class="lp-features">
-    <div class="container">
-        <div class="lp-section-head" data-reveal>
-            <span class="lp-section-kicker">Le poste de pilotage du recruteur</span>
-            <h2>Tout votre recrutement, <span class="highlight">au même endroit</span></h2>
-            <p>Des outils pensés pour les recruteurs : de la publication de l'offre jusqu'à la décision finale.</p>
-        </div>
-
-        <div class="lp-feature-stack">
-            <article class="lp-feature-row" data-reveal>
-                <div class="lp-feature-copy">
-                    <span class="lp-feature-icon"><x-icon name="pipeline" /></span>
-                    <h3>Un pipeline visuel, du premier CV à la décision</h3>
-                    <p>Chaque candidature suit un parcours clair : reçue, en entretien, acceptée ou refusée. Déplacez les cartes d'une colonne à l'autre, posez des étiquettes rapides et traitez plusieurs dossiers en un seul geste.</p>
-                    <a class="lp-feature-link" href="{{ route('jobs.index') }}">Explorer les offres <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
-                </div>
-                <div class="lp-feature-visual" aria-hidden="true">
-                    <div class="lp-fv">
-                        <div class="lp-fv-track">
-                            <span class="pill pill-slate">Reçu</span>
-                            <span class="fv-arrow"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
-                            <span class="pill">Entretien</span>
-                            <span class="fv-arrow"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
-                            <span class="pill pill-success">Accepté</span>
-                        </div>
-                        <span class="lp-fv-note"><b>24</b> reçues → <b>8</b> en entretien → <b>3</b> acceptées</span>
-                    </div>
-                </div>
-            </article>
-
-            <article class="lp-feature-row flip" data-reveal>
-                <div class="lp-feature-copy">
-                    <span class="lp-feature-icon"><x-icon name="target" /></span>
-                    <h3>Un score de compatibilité, calculé par IA</h3>
-                    <p>À chaque dépôt de CV, le moteur compare le profil à la stack technique de l'offre et rend un score de 0 à 100, avec les mots-clés trouvés et manquants. Vous voyez le pourquoi, pas seulement le combien.</p>
-                    <span class="lp-fv-note" style="display:inline-flex;gap:6px;align-items:center;margin-top:18px"><b>Score transparent</b> — trouvés : PHP, Laravel, MySQL · manquants : Docker</span>
-                </div>
-                <div class="lp-feature-visual" aria-hidden="true">
-                    <div class="lp-fv lp-fv-score">
-                        <div class="lp-fv-ring">
-                            <span class="lp-fv-ring-inner"><b class="mono">82</b><span>compatibilité</span></span>
-                        </div>
-                        <div class="lp-fv-kw">
-                            <span class="chip chip-ok">PHP</span>
-                            <span class="chip chip-ok">Laravel</span>
-                            <span class="chip chip-ok">MySQL</span>
-                            <span class="chip chip-no">Docker</span>
-                            <span class="chip chip-no">Redis</span>
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            <article class="lp-feature-row" data-reveal>
-                <div class="lp-feature-copy">
-                    <span class="lp-feature-icon"><x-icon name="calendar" /></span>
-                    <h3>Des entretiens planifiés, préparés, évalués</h3>
-                    <p>Planifiez un entretien en un clic, laissez l'IA générer des questions techniques depuis la stack de l'offre, puis notez chaque candidat sur trois critères : technique, communication, motivation.</p>
-                </div>
-                <div class="lp-feature-visual" aria-hidden="true">
-                    <div class="lp-fv">
-                        <span class="pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Entretien · 10 août</span>
-                        <div class="lp-fv-scores">
-                            <span class="mono">4/5</span>
-                            <span class="mono">5/5</span>
-                            <span class="mono">3/5</span>
-                        </div>
-                        <div class="lp-fv-bar"><i style="width:80%"></i></div>
-                        <span class="lp-fv-note">score moyen de l'entretien : <b>4,0 / 5</b></span>
-                    </div>
-                </div>
-            </article>
-        </div>
-    </div>
-</section>
-
-{{-- ================= HOW IT WORKS ================= --}}
-<section class="lp-how">
-    <div class="container">
-        <div class="lp-section-head center" data-reveal>
-            <span class="lp-section-kicker" style="justify-content:center">Comment ça marche</span>
-            <h2>Trois étapes, zéro tableur</h2>
-        </div>
-        <div class="lp-how-grid">
-            <div class="lp-how-step rv-1" data-reveal>
-                <span class="lp-how-num">01</span>
-                <h3>Publiez une offre</h3>
-                <p>Titre, stack technique, contrat, salaire et date limite. Le lien est prêt à partager sur vos canaux habituels.</p>
-            </div>
-            <div class="lp-how-step rv-2" data-reveal>
-                <span class="lp-how-num">02</span>
-                <h3>Recevez des CV notés</h3>
-                <p>Chaque candidature arrive avec son score de compatibilité et le détail des mots-clés, calculés par l'IA.</p>
-            </div>
-            <div class="lp-how-step rv-3" data-reveal>
-                <span class="lp-how-num">03</span>
-                <h3>Décidez en entretien</h3>
-                <p>Planifiez, évaluez, comparez les profils retenus, puis acceptez ou refusez avec un suivi complet.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-{{-- ================= CTA ================= --}}
-<section class="lp-cta">
-    <div class="container">
-        <div class="lp-cta-card" data-reveal>
-            <span class="lp-section-kicker" style="position:relative;justify-content:center">C'est parti</span>
-            <h2>Prêt à recruter plus vite ?</h2>
-            <p>Publiez une offre, partagez le lien, et laissez le score de compatibilité trier les CV à votre place.</p>
-            <div class="lp-cta-actions">
-                <a class="btn btn-primary btn-pill" href="{{ route('register') }}">
-                    Créer un compte gratuit
-                    <span class="lp-cta-arrow">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+{{-- ============================================================
+     TRUST STRIP — scrolling tech-stack marquee
+============================================================ --}}
+<section class="border-y border-line bg-surface/60 py-6" aria-label="Technologies supported">
+    <div class="marquee overflow-hidden" aria-hidden="true">
+        <div class="marquee-track flex items-center gap-3">
+            @php $stack = ['PHP', 'Laravel', 'MySQL', 'Docker', 'Git', 'React', 'Vue.js', 'Python', 'TypeScript', 'Node.js', 'Kubernetes', 'AWS', 'CI/CD', 'Redis', 'Symfony', 'MongoDB', 'GraphQL', 'Tailwind CSS']; @endphp
+            @for ($i = 0; $i < 2; $i++)
+                @foreach ($stack as $tech)
+                    <span class="flex shrink-0 items-center gap-2 rounded-pill border border-line bg-white px-5 py-2 text-sm font-semibold text-body">
+                        <span class="size-2 rounded-full bg-accent"></span>{{ $tech }}
                     </span>
-                </a>
-                <a class="btn btn-ghost btn-pill" href="{{ route('login') }}">J'ai déjà un compte</a>
-            </div>
-            <div class="lp-trust" style="position:relative">
-                <div class="lp-trust-list">
-                    <span class="lp-trust-item"><x-icon name="shield" /> API sécurisée par jeton</span>
-                    <span class="lp-trust-item"><x-icon name="check" /> Accès limité par rôle</span>
-                    <span class="lp-trust-item"><x-icon name="eye" /> Historique complet des candidatures</span>
-                </div>
-            </div>
+                @endforeach
+            @endfor
+        </div>
+    </div>
+</section>
 
-            {{-- Legal strip: complements the layout footer (mimo owns that file) --}}
-            <nav class="lp-legal" aria-label="Liens légaux">
-                <div class="lp-legal-nav">
-                    <span class="lp-legal-disabled" aria-disabled="true" title="Page à venir">Confidentialité</span>
-                    <span class="lp-legal-disabled" aria-disabled="true" title="Page à venir">CGU</span>
-                    <a href="mailto:contact@smartrecruit.test">Contact</a>
-                </div>
-                <a class="lp-to-top" href="#top">
-                    Retour en haut
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+{{-- ============================================================
+     STATS
+============================================================ --}}
+<section class="bg-canvas py-16" aria-label="SmartRecruit in numbers">
+    <div class="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-6 lg:grid-cols-4">
+        <div data-reveal class="rounded-card border border-line bg-white p-6">
+            <p class="mono text-4xl font-semibold tracking-tight text-dark">24<span class="text-lg text-body/60">/offer</span></p>
+            <p class="mt-2 text-sm font-medium text-body">candidates tracked on average for every published role</p>
+        </div>
+        <div data-reveal class="rounded-card border border-line bg-white p-6">
+            <p class="mono text-4xl font-semibold tracking-tight text-dark">9.4<span class="text-lg text-body/60"> days</span></p>
+            <p class="mt-2 text-sm font-medium text-body">average time from offer to hire, tracked on your dashboard</p>
+        </div>
+        <div data-reveal class="rounded-card border border-line bg-white p-6">
+            <p class="mono text-4xl font-semibold tracking-tight text-dark">82<span class="text-lg text-body/60">/100</span></p>
+            <p class="mt-2 text-sm font-medium text-body">average AI compatibility score of profiles you move forward</p>
+        </div>
+        <div data-reveal class="rounded-card border border-line bg-white p-6">
+            <p class="mono text-4xl font-semibold tracking-tight text-dark">100<span class="text-lg text-body/60">%</span></p>
+            <p class="mt-2 text-sm font-medium text-body">transparent scoring — see the matched and missing keywords</p>
+        </div>
+    </div>
+</section>
+
+{{-- ============================================================
+     FEATURES — asymmetric zig-zag
+============================================================ --}}
+<section class="bg-canvas pb-20" aria-label="Features">
+    <div class="mx-auto max-w-6xl px-6">
+        <div data-reveal class="mx-auto mb-14 max-w-2xl text-center">
+            <span class="text-xs font-bold uppercase tracking-[0.18em] text-textaccent">The recruiter's cockpit</span>
+            <h2 class="heading-section mt-3">Everything about your hiring, <span class="text-secondary">in one place</span></h2>
+            <p class="mt-4 text-lg font-medium text-body">From publishing an offer to the final decision — visual, measurable, and built for speed.</p>
+        </div>
+
+        {{-- Feature 1: pipeline --}}
+        <article data-reveal class="grid items-center gap-10 lg:grid-cols-2">
+            <div>
+                <span class="mb-4 inline-grid size-12 place-items-center rounded-[16px] bg-accent/20 text-textaccent"><x-icon name="pipeline" /></span>
+                <h3 class="text-2xl font-semibold tracking-tight">A visual pipeline, from first CV to decision</h3>
+                <p class="mt-3 text-body">Every application follows a clear path — received, interview, accepted or refused. Drag cards between columns, add quick tags and process several files in one single gesture.</p>
+                <a href="{{ route('jobs.index') }}" class="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-textaccent hover:underline">Explore job offers
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                 </a>
-            </nav>
+            </div>
+            <div aria-hidden="true" class="rounded-[32px] bg-section-pink p-8">
+                <div class="grid grid-cols-4 gap-2">
+                    <div class="rounded-[18px] bg-white/90 p-3">
+                        <span class="block size-2 rounded-full bg-accent"></span>
+                        <p class="mt-2 text-[11px] font-semibold text-body">Received</p>
+                        <p class="mono text-xl font-semibold">24</p>
+                    </div>
+                    <div class="rounded-[18px] bg-white/90 p-3">
+                        <span class="block size-2 rounded-full bg-secondary/70"></span>
+                        <p class="mt-2 text-[11px] font-semibold text-body">Interview</p>
+                        <p class="mono text-xl font-semibold">8</p>
+                    </div>
+                    <div class="rounded-[18px] bg-white/90 p-3">
+                        <span class="block size-2 rounded-full bg-ok"></span>
+                        <p class="mt-2 text-[11px] font-semibold text-body">Accepted</p>
+                        <p class="mono text-xl font-semibold">3</p>
+                    </div>
+                    <div class="rounded-[18px] bg-white/90 p-3">
+                        <span class="block size-2 rounded-full bg-section-orange"></span>
+                        <p class="mt-2 text-[11px] font-semibold text-body">Refused</p>
+                        <p class="mono text-xl font-semibold">13</p>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between rounded-pill bg-white/90 px-5 py-3">
+                    <span class="text-xs font-semibold text-body">Conversion</span>
+                    <span class="mono text-sm font-semibold text-ok">24 → 8 → 3</span>
+                </div>
+            </div>
+        </article>
+
+        {{-- Feature 2: AI score --}}
+        <article data-reveal class="mt-20 grid items-center gap-10 lg:grid-cols-2">
+            <div aria-hidden="true" class="rounded-[32px] bg-section-purple p-8 lg:order-1">
+                <div class="mx-auto w-fit rounded-[28px] bg-white p-6 text-center shadow-tint">
+                    <div class="score-ring-wrap" style="margin:0 auto 12px">
+                        <svg class="score-ring" viewBox="0 0 54 54" width="100%" height="100%">
+                            <circle class="score-ring-track" cx="27" cy="27" r="24"></circle>
+                            <circle class="score-ring-fill" cx="27" cy="27" r="24" stroke="#16a34a" stroke-dasharray="150.8" stroke-dashoffset="12.1"></circle>
+                        </svg>
+                        <span class="score-label">92</span>
+                    </div>
+                    <p class="text-sm font-semibold text-body">CV match · Laravel Dev</p>
+                    <div class="mt-3 flex flex-wrap justify-center gap-1.5">
+                        <span class="rounded-pill bg-ok-bg px-3 py-1 text-[11px] font-semibold text-ok">PHP</span>
+                        <span class="rounded-pill bg-ok-bg px-3 py-1 text-[11px] font-semibold text-ok">Laravel</span>
+                        <span class="rounded-pill bg-ok-bg px-3 py-1 text-[11px] font-semibold text-ok">MySQL</span>
+                        <span class="rounded-pill bg-danger-bg px-3 py-1 text-[11px] font-semibold text-danger">Docker</span>
+                    </div>
+                    <p class="mt-3 text-[11px] font-medium text-body/70">Found: PHP, Laravel, MySQL · Missing: Docker</p>
+                </div>
+            </div>
+            <div class="lg:order-2">
+                <span class="mb-4 inline-grid size-12 place-items-center rounded-[16px] bg-secondary/10 text-secondary"><x-icon name="target" /></span>
+                <h3 class="text-2xl font-semibold tracking-tight">A compatibility score, computed by AI</h3>
+                <p class="mt-3 text-body">At every CV upload, the engine compares the profile against the offer's tech stack and returns a score from 0 to 100, with the keywords found and missing. You see the why, not just the how much.</p>
+                <ul class="mt-5 space-y-2.5 text-sm font-medium text-body">
+                    <li class="flex items-center gap-2.5"><span class="grid size-5 place-items-center rounded-full bg-ok-bg text-ok">✓</span>Runs as a background job — instant 201, no waiting</li>
+                    <li class="flex items-center gap-2.5"><span class="grid size-5 place-items-center rounded-full bg-ok-bg text-ok">✓</span>Full transparency for the recruiter and the candidate</li>
+                    <li class="flex items-center gap-2.5"><span class="grid size-5 place-items-center rounded-full bg-ok-bg text-ok">✓</span>Interview questions generated from the same stack</li>
+                </ul>
+            </div>
+        </article>
+
+        {{-- Feature 3: productivity tools --}}
+        <article data-reveal class="mt-20 grid items-center gap-10 lg:grid-cols-2">
+            <div>
+                <span class="mb-4 inline-grid size-12 place-items-center rounded-[16px] bg-section-yellow/70 text-dark"><x-icon name="sparkles" /></span>
+                <h3 class="text-2xl font-semibold tracking-tight">Productivity tools that scale with you</h3>
+                <p class="mt-3 text-body">Batch actions, saved filters, side-by-side comparison and top-5 shortlists — every repetitive task has been removed so you can focus on the candidates.</p>
+                <div class="mt-5 flex flex-wrap gap-2">
+                    <span class="rounded-pill border border-line bg-white px-4 py-2 text-xs font-semibold text-body">⚡ Batch status updates</span>
+                    <span class="rounded-pill border border-line bg-white px-4 py-2 text-xs font-semibold text-body">🔖 Saved filters</span>
+                    <span class="rounded-pill border border-line bg-white px-4 py-2 text-xs font-semibold text-body">⇄ Compare 2-4 profiles</span>
+                    <span class="rounded-pill border border-line bg-white px-4 py-2 text-xs font-semibold text-body">★ Top-5 shortlist + export</span>
+                </div>
+            </div>
+            <div aria-hidden="true" class="rounded-[32px] bg-section-green p-8">
+                <div class="rounded-[24px] bg-white/95 p-5 shadow-tint">
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm font-semibold">Shortlist — Laravel Dev</p>
+                        <span class="rounded-pill bg-accent/20 px-3 py-1 text-[11px] font-bold text-textaccent">CSV · PDF</span>
+                    </div>
+                    @php $short = [['Sara El Amrani', 92, 'ok'], ['Amine Tazi', 84, 'ok'], ['Youssef Benali', 78, 'ok'], ['Kenza Idrissi', 65, 'warn']]; @endphp
+                    <ul class="mt-4 space-y-2.5">
+                        @foreach ($short as $idx => $row)
+                            <li class="flex items-center gap-3 rounded-[16px] border border-line bg-white px-3.5 py-2.5">
+                                <span class="mono text-xs font-semibold text-body/60">#{{ $idx + 1 }}</span>
+                                <span class="size-8 rounded-[10px] bg-surface text-sm font-bold text-dark">{{ substr($row[0], 0, 1) }}</span>
+                                <span class="flex-1 truncate text-sm font-semibold">{{ $row[0] }}</span>
+                                <span class="mono text-sm font-semibold {{ $row[2] === 'ok' ? 'text-ok' : 'text-warn' }}">{{ $row[1] }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+        </article>
+    </div>
+</section>
+
+{{-- ============================================================
+     HOW IT WORKS
+============================================================ --}}
+<section class="border-y border-line bg-surface/60 py-20" aria-label="How it works">
+    <div class="mx-auto max-w-6xl px-6">
+        <div data-reveal class="mx-auto mb-12 max-w-2xl text-center">
+            <span class="text-xs font-bold uppercase tracking-[0.18em] text-textaccent">How it works</span>
+            <h2 class="heading-section mt-3">From application to hire in three steps</h2>
+        </div>
+        <div class="grid gap-5 md:grid-cols-3">
+            <div data-reveal class="rounded-[28px] bg-white p-7 shadow-soft">
+                <span class="grid size-12 place-items-center rounded-full bg-accent text-lg font-bold text-dark">1</span>
+                <h3 class="mt-5 text-xl font-semibold tracking-tight">Publish your offer</h3>
+                <p class="mt-2 text-sm font-medium leading-relaxed text-body">Define the title, description, tech stack and deadline. Your job offer goes live instantly and candidates apply with a CV and cover letter.</p>
+            </div>
+            <div data-reveal class="rounded-[28px] bg-white p-7 shadow-soft">
+                <span class="grid size-12 place-items-center rounded-full bg-section-yellow text-lg font-bold text-dark">2</span>
+                <h3 class="mt-5 text-xl font-semibold tracking-tight">Screen with AI</h3>
+                <p class="mt-2 text-sm font-medium leading-relaxed text-body">Each CV is scored against the required stack. Review matched and missing keywords, add notes and tags, and shortlist the strongest profiles.</p>
+            </div>
+            <div data-reveal class="rounded-[28px] bg-white p-7 shadow-soft">
+                <span class="grid size-12 place-items-center rounded-full bg-secondary text-lg font-bold text-white">3</span>
+                <h3 class="mt-5 text-xl font-semibold tracking-tight">Interview & decide</h3>
+                <p class="mt-2 text-sm font-medium leading-relaxed text-body">Schedule scored interviews, generate tailored questions, then move cards to accepted or refused. Candidates are notified automatically.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+{{-- ============================================================
+     CTA BAND
+============================================================ --}}
+<section class="bg-canvas py-20" aria-label="Get started">
+    <div data-reveal class="mx-auto max-w-6xl px-6">
+        <div class="grain relative overflow-hidden rounded-[36px] bg-secondary px-8 py-16 text-center text-white sm:px-16">
+            <div class="relative z-10">
+                <h2 class="heading-section text-white">Ready to hire for growth?</h2>
+                <p class="mx-auto mt-3 max-w-xl text-lg font-medium text-white/85">Join recruiters who ditched the spreadsheets. Set up your pipeline and score your first candidates in minutes.</p>
+                <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+                    <a href="{{ route('register') }}" class="rounded-pill bg-white px-8 py-3.5 text-sm font-bold text-secondary shadow-pop transition-transform hover:-translate-y-0.5">Create your free account</a>
+                    <a href="{{ route('jobs.index') }}" class="rounded-pill border border-white/40 px-8 py-3.5 text-sm font-bold text-white transition-colors hover:bg-white/10">Browse open jobs</a>
+                </div>
+                <p class="mt-5 text-xs font-medium text-white/70">No credit card · 1-minute signup · Works on every device</p>
+            </div>
         </div>
     </div>
 </section>
@@ -612,27 +283,179 @@ body[data-page="landing"] [data-reveal].rv-3 { transition-delay: .24s; }
 
 @section('scripts')
 <script>
-  /* Landing scroll reveals — IntersectionObserver only, GPU-safe transform/opacity */
+  /* ============================================================
+     Landing page — scroll reveals + interactive Kanban demo
+     Uses only SR.* helpers (toast, modal, kanban) from app.js.
+  ============================================================ */
   (function () {
-    var els = document.querySelectorAll('[data-reveal]');
-    if (!els.length) return;
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      for (var i = 0; i < els.length; i++) els[i].classList.add('is-in');
-      return;
-    }
-    if (!('IntersectionObserver' in window)) {
-      for (var j = 0; j < els.length; j++) els[j].classList.add('is-in');
-      return;
-    }
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('is-in');
-          io.unobserve(entry.target);
-        }
+    'use strict';
+
+    /* ---- Scroll reveals (IO, GPU-safe, respects reduced motion) ---- */
+    (function reveal() {
+      var els = document.querySelectorAll('[data-reveal]');
+      if (!els.length) return;
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        els.forEach(function (el) { el.classList.add('in-view'); });
+        return;
+      }
+      if (!('IntersectionObserver' in window)) {
+        els.forEach(function (el) { el.classList.add('in-view'); });
+        return;
+      }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('in-view');
+            io.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+      els.forEach(function (el) { io.observe(el); });
+    })();
+
+    /* ---- Demo data: 12 sample candidates ---- */
+    var DEMO_APPS = [      { id: 1,  name: 'Sara El Amrani', role: 'Laravel Developer',   status: 'interview', score: 92, matched: ['PHP', 'Laravel', 'MySQL'], missing: ['Docker'], tag: 'Prioritaire' },
+      { id: 2,  name: 'Amine Tazi',     role: 'Senior Laravel Dev',  status: 'interview', score: 88, matched: ['PHP', 'Laravel'],        missing: ['Docker', 'Git'], tag: '' },
+      { id: 3,  name: 'Nadia Bouhlel',  role: 'Full-Stack Developer',status: 'interview', score: 81, matched: ['PHP', 'MySQL'],          missing: ['Laravel', 'Docker'], tag: 'Interview planned' },
+      { id: 4,  name: 'Mehdi Alaoui',   role: 'Backend Engineer',    status: 'interview', score: 76, matched: ['PHP'],                  missing: ['Laravel', 'MySQL', 'Docker'], tag: '' },
+      { id: 5,  name: 'Youssef Benali', role: 'Symfony Developer',   status: 'received',  score: 71, matched: ['PHP', 'MySQL'],          missing: ['Laravel', 'Docker'], tag: 'To follow up' },
+      { id: 6,  name: 'Kenza Idrissi',  role: 'Full-Stack Dev',      status: 'received',  score: 64, matched: ['PHP'],                  missing: ['Laravel', 'MySQL', 'Docker'], tag: '' },
+      { id: 7,  name: 'Omar Chraibi',   role: 'PHP Developer',       status: 'received',  score: 58, matched: ['MySQL'],                missing: ['PHP', 'Laravel', 'Docker'], tag: '' },
+      { id: 8,  name: 'Salma Berrada',  role: 'Backend Developer',   status: 'received',  score: 49, matched: [],                       missing: ['PHP', 'Laravel', 'MySQL', 'Docker'], tag: '' },
+      { id: 9,  name: 'Rania Fassi',    role: 'Laravel Architect',   status: 'accepted',  score: 95, matched: ['PHP', 'Laravel', 'MySQL', 'Docker'], missing: [], tag: 'Offer sent' },
+      { id: 10, name: 'Hamza Ouazzani', role: 'DevOps Engineer',     status: 'accepted',  score: 83, matched: ['Docker'],               missing: ['Laravel'], tag: 'Offer sent' },
+      { id: 11, name: 'Ilias Mansouri', role: 'Junior Developer',    status: 'refused',   score: 41, matched: ['PHP'],                  missing: ['Laravel', 'MySQL', 'Docker'], tag: '' },
+      { id: 12, name: 'Douae Bennani',  role: 'UI Developer',        status: 'refused',   score: 37, matched: [],                       missing: ['PHP', 'Laravel', 'MySQL', 'Docker'], tag: '' },
+    ];
+
+    var COLUMNS = [
+      { status: 'received',  label: 'Received',  dot: 'bg-accent',        cardBg: 'bg-white' },
+      { status: 'interview', label: 'Interview', dot: 'bg-secondary/70',  cardBg: 'bg-white' },
+      { status: 'accepted',  label: 'Accepted',  dot: 'bg-ok',            cardBg: 'bg-white' },
+      { status: 'refused',   label: 'Refused',   dot: 'bg-section-orange', cardBg: 'bg-white' },
+    ];
+
+    var board = document.getElementById('heroKanban');
+    if (!board) return;
+
+    /* ---- Build columns + cards ---- */
+    function buildDemo() {
+      var html = '';
+      COLUMNS.forEach(function (col) {
+        html += '<div class="kanban-col min-h-[120px] rounded-[22px] border border-line bg-surface/50 p-2.5 [&>.kanban-card+.kanban-card]:mt-2" data-col="' + col.status + '">' +
+          '<div class="mb-2.5 flex items-center justify-between px-1">' +
+            '<span class="flex items-center gap-2 text-xs font-bold text-dark"><span class="size-2.5 rounded-full ' + col.dot + '"></span>' + col.label + '</span>' +
+            '<span class="kanban-count rounded-pill bg-white px-2.5 py-0.5 mono text-[11px] font-bold text-body">0</span>' +
+          '</div></div>';
       });
-    }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
-    els.forEach(function (el) { io.observe(el); });
+      board.innerHTML = html;
+
+      DEMO_APPS.forEach(function (c) {
+        var colEl = board.querySelector('[data-col="' + c.status + '"]');
+        if (!colEl) return;
+        colEl.insertAdjacentHTML('beforeend', demoCard(c));
+      });
+      refreshCounts();
+      SR.kanban.enable(board, {
+        canDrop: function () { return true; },
+        onOptimistic: refreshCounts,
+        onDrop: function (card, fromStatus, toStatus, done) {
+          // Demo: no persistence — always accept the move.
+          refreshCounts();
+          done(true);
+        },
+      });
+      SR.kanban.markDraggable(board);
+    }
+
+    function demoCard(c) {
+      var chips = '';
+      c.matched.slice(0, 2).forEach(function (k) {
+        chips += '<span class="rounded-pill bg-ok-bg px-2 py-0.5 text-[10px] font-bold text-ok">' + k + '</span>';
+      });
+      if (c.missing.length) {
+        chips += '<span class="rounded-pill bg-danger-bg px-2 py-0.5 text-[10px] font-bold text-danger">-' + c.missing.length + '</span>';
+      }
+      return '<div class="kanban-card cursor-grab select-none rounded-[18px] border border-line bg-white p-3 shadow-soft active:cursor-grabbing" draggable="true" data-id="' + c.id + '" data-status="' + c.status + '" data-name="' + c.name + '" data-role="' + c.role + '" data-score="' + c.score + '" data-matched="' + c.matched.join('|') + '" data-missing="' + c.missing.join('|') + '" data-tag="' + c.tag + '">' +
+        '<div class="flex items-center gap-2.5">' +
+          '<span class="grid size-9 shrink-0 place-items-center rounded-[12px] bg-surface text-sm font-bold text-dark">' + c.name.charAt(0) + '</span>' +
+          '<span class="min-w-0 flex-1">' +
+            '<span class="block truncate text-[13px] font-bold leading-tight">' + c.name + '</span>' +
+            '<span class="block truncate text-[11px] font-medium text-body/80">' + c.role + '</span>' +
+          '</span>' +
+          '<span class="score-ring-wrap sm"><svg class="score-ring" viewBox="0 0 54 54" width="100%" height="100%"><circle class="score-ring-track" cx="27" cy="27" r="24"></circle><circle class="score-ring-fill" cx="27" cy="27" r="24" stroke="' + (c.score >= 80 ? '#16a34a' : c.score >= 50 ? '#f5a623' : '#ef4444') + '" stroke-dasharray="' + (2 * Math.PI * 24) + '" stroke-dashoffset="' + (2 * Math.PI * 24 - (c.score / 100) * 2 * Math.PI * 24) + '"></circle></svg><span class="score-label">' + c.score + '</span></span>' +
+        '</div>' +
+        '<div class="mt-2.5 flex flex-wrap gap-1">' + chips + '</div>' +
+      '</div>';
+    }
+
+    function refreshCounts() {
+      if (!board) return;
+      board.querySelectorAll('.kanban-col').forEach(function (col) {
+        var n = col.querySelectorAll('.kanban-card').length;
+        var countEl = col.querySelector('.kanban-count');
+        if (countEl) countEl.textContent = n;
+      });
+      var total = board.querySelectorAll('.kanban-card').length;
+      var hint = document.getElementById('demoHints');
+      if (hint) hint.textContent = total + ' candidates';
+    }
+
+    /* ---- Click card → modal detail with demo Accept/Refuse pills ---- */
+    function openDemoDetail(card) {
+      var score = Number(card.dataset.score || 0);
+      var matched = (card.dataset.matched || '').split('|').filter(Boolean);
+      var missing = (card.dataset.missing || '').split('|').filter(Boolean);
+      var html = '<div style="text-align:center;padding:6px 0 4px">' +
+        '<span class="avatar" style="width:56px;height:56px;font-size:20px">' + card.dataset.name.charAt(0) + '</span>' +
+        '<p class="mono" style="margin-top:12px;font-weight:700;font-size:17px">' + card.dataset.name + '</p>' +
+        '<p style="margin-top:2px;font-size:13px;font-weight:500;color:var(--slate)">' + card.dataset.role + ' · Laravel Developer — Agadir</p>' +
+        '<div class="score-ring-wrap" style="margin:14px auto 0">' +
+          '<svg class="score-ring" viewBox="0 0 54 54" width="100%" height="100%"><circle class="score-ring-track" cx="27" cy="27" r="24"></circle>' +
+          '<circle class="score-ring-fill" cx="27" cy="27" r="24" stroke="' + (score >= 80 ? '#16a34a' : score >= 50 ? '#f5a623' : '#ef4444') + '" stroke-dasharray="' + (2 * Math.PI * 24) + '" stroke-dashoffset="' + (2 * Math.PI * 24 - (score / 100) * 2 * Math.PI * 24) + '"></circle></svg>' +
+          '<span class="score-label">' + score + '</span></div>' +
+        '<p style="margin-top:4px;font-size:11px;font-weight:600;color:var(--slate)">AI compatibility score</p>' +
+        '<div class="kv" style="text-align:left;margin-top:16px">' +
+          '<div class="kv-row"><span class="kv-k">Found</span><span>' + (matched.length ? matched.map(function (k) { return '<span class="tag tag-green">' + k + '</span>'; }).join(' ') : '<span style="color:var(--slate)">—</span>') + '</span></div>' +
+          '<div class="kv-row"><span class="kv-k">Missing</span><span>' + (missing.length ? missing.map(function (k) { return '<span class="tag tag-red">' + k + '</span>'; }).join(' ') : '<span style="color:var(--slate)">—</span>') + '</span></div>' +
+          (card.dataset.tag ? '<div class="kv-row"><span class="kv-k">Tag</span><span class="tag tag-navy">' + card.dataset.tag + '</span></div>' : '') +
+        '</div></div>' +
+        '<div style="display:flex;gap:10px;margin-top:18px">' +
+          '<button class="btn btn-success btn-pill" style="flex:1" data-demo-action="accept">Accept</button>' +
+          '<button class="btn btn-danger btn-pill" style="flex:1" data-demo-action="refuse">Refuse</button>' +
+        '</div>';
+      SR.modal.open(html, { title: 'Candidate review' });
+
+      setTimeout(function () {
+        var box = document.getElementById('modalBox');
+        if (!box) return;
+        box.querySelectorAll('[data-demo-action]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            SR.modal.close();
+            SR.toast(btn.dataset.demoAction === 'accept'
+              ? 'Demo — "Accept" would notify the candidate by email'
+              : 'Demo — "Refuse" would suggest similar profiles', btn.dataset.demoAction === 'accept' ? 'success' : 'info');
+          });
+        });
+      }, 0);
+    }
+
+    /* ---- Demo: needs SR.* (app.js is a deferred module) — wait for it ---- */
+    function whenReady(fn) {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fn);
+      } else {
+        fn();
+      }
+    }
+
+    whenReady(function () {
+      board.addEventListener('click', function (e) {
+        var card = e.target.closest('.kanban-card');
+        if (card) openDemoDetail(card);
+      });
+      buildDemo();
+    });
   })();
 </script>
 @endsection

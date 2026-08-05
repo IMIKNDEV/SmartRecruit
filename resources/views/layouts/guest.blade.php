@@ -51,6 +51,9 @@
     </div>
 </footer>
 
+<div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal" id="modalBox"></div>
+</div>
 <div class="toast-container" id="toasts"></div>
 @yield('scripts')
 </body>
