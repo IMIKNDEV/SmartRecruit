@@ -620,11 +620,11 @@
         try {
           const res = await SR.api.post('/login', payload);
           SR.auth.set(res);
-          toast('Connexion reussie. Redirection...', 'success');
+          toast('Logged in. Redirecting…', 'success');
           window.location.href = SR.auth.home(res.user);
         } catch (err) {
           SR.helpers.setLoading(btn, false);
-          showFormError(form, err.message || 'Identifiants incorrects');
+          showFormError(form, err.message || 'Invalid email or password');
         }
       });
     },
@@ -649,7 +649,7 @@
       form.addEventListener('submit', async function (e) {
         e.preventDefault();
         if (form.password.value !== form.password_confirmation.value) {
-          showFormError(form, 'Les mots de passe ne correspondent pas.');
+          showFormError(form, 'Passwords do not match.');
           return;
         }
         const btn = form.querySelector('[type="submit"]');
@@ -664,13 +664,13 @@
         try {
           const res = await SR.api.post('/register', payload);
           SR.auth.set(res);
-          toast('Compte cree. Bienvenue !', 'success');
+          toast('Account created. Welcome!', 'success');
           window.location.href = SR.auth.home(res.user);
         } catch (err) {
           SR.helpers.setLoading(btn, false);
           const msg = (err.body && err.body.errors)
             ? Object.values(err.body.errors).flat().join(' / ')
-            : (err.message || 'Erreur lors de l\'inscription');
+            : (err.message || 'Unable to create your account');
           showFormError(form, msg);
         }
       });

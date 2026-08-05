@@ -1,74 +1,67 @@
 @extends('layouts.guest')
 
-@section('title', 'Inscription')
+@section('title', 'Create an account')
 
 @section('body_attrs')
  data-page="register"
 @endsection
 
 @section('content')
-<div class="lp-auth">
-    <div class="container lp-auth-inner">
-        <aside class="lp-auth-panel">
-            <span class="lp-eyebrow lp-eyebrow-light">Espace recruteurs & candidats</span>
-            <div>
-                <h2>Publiez une offre, recevez des candidatures triées.</h2>
-                <p>Le score de compatibilité est calculé automatiquement à chaque dépôt de CV.</p>
-            </div>
-            <ul class="lp-auth-proof">
-                <li><span class="lp-proof-ic"><x-icon name="pipeline" /></span> Pipeline Kanban en temps réel</li>
-                <li><span class="lp-proof-ic"><x-icon name="target" /></span> Score IA transparent, de 0 à 100</li>
-                <li><span class="lp-proof-ic"><x-icon name="calendar" /></span> Entretiens planifiés et notés</li>
-            </ul>
-        </aside>
+<div class="mx-auto flex min-h-[70vh] max-w-6xl items-center justify-center px-6 py-16">
+    <div class="w-full max-w-lg" data-reveal>
+        <div class="rounded-[32px] border border-line bg-white p-8 shadow-tint sm:p-10">
+            <span class="inline-flex items-center gap-2 rounded-pill border border-line bg-surface px-3.5 py-1.5 text-xs font-semibold text-body">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-textaccent" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z"/></svg>
+                Free to start
+            </span>
+            <h1 class="mt-4 text-3xl font-semibold tracking-tight">Create your account</h1>
+            <p class="mt-2 text-sm font-medium text-body">Join SmartRecruit — it takes less than a minute.</p>
 
-        <div class="lp-auth-card">
-            <h1>Créer un compte</h1>
-            <p class="lp-auth-sub">Rejoignez SmartRecruit, c'est gratuit.</p>
-
-            <form id="registerForm" novalidate>
-                <div class="form-alert" role="alert"></div>
+            <form id="registerForm" class="mt-7" novalidate>
+                <div class="form-alert hidden" role="alert"></div>
 
                 <div class="form-group">
-                    <label class="form-label" for="name">Nom complet</label>
+                    <label class="form-label" for="name">Full name</label>
                     <input class="input" type="text" id="name" name="name" placeholder="Ayoub Idbelhaj" autocomplete="name" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="email">Adresse e-mail</label>
-                    <input class="input" type="email" id="email" name="email" placeholder="vous@exemple.com" autocomplete="email" required>
+                    <label class="form-label" for="email">Email address</label>
+                    <input class="input" type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" required>
                 </div>
 
                 <div class="form-group">
-                    <span class="form-label">Je souhaite être</span>
-                    <div class="role-select">
-                        <button type="button" class="role-option active" data-role="recruiter" aria-pressed="true">
-                            <span class="role-name">Recruteur</span>
-                            <span class="role-desc">Je publie des offres</span>
+                    <span class="form-label">I am a</span>
+                    <div class="role-select grid grid-cols-2 gap-2.5">
+                        <button type="button" class="role-option active rounded-[18px] border-2 border-secondary bg-secondary/5 p-4 text-left transition-all hover:-translate-y-0.5" data-role="recruiter" aria-pressed="true">
+                            <span class="role-name flex items-center gap-2 text-sm font-bold text-dark"><x-icon name="briefcase" />Recruiter</span>
+                            <span class="role-desc mt-1.5 block text-xs font-medium text-body">I publish and manage job offers</span>
                         </button>
-                        <button type="button" class="role-option" data-role="candidate" aria-pressed="false">
-                            <span class="role-name">Candidat</span>
-                            <span class="role-desc">Je postule à des offres</span>
+                        <button type="button" class="role-option rounded-[18px] border-2 border-line bg-white p-4 text-left transition-all hover:-translate-y-0.5" data-role="candidate" aria-pressed="false">
+                            <span class="role-name flex items-center gap-2 text-sm font-bold text-dark"><x-icon name="users" />Candidate</span>
+                            <span class="role-desc mt-1.5 block text-xs font-medium text-body">I apply to open positions</span>
                         </button>
                     </div>
-                    <p class="form-hint">Le rôle est définitif et ne peut pas être modifié après l'inscription.</p>
+                    <p class="form-hint mt-2 text-xs font-medium text-body/70">Your role is permanent and cannot be changed after registration.</p>
                 </div>
 
-                <div class="form-row">
+                <div class="form-row grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div class="form-group">
-                        <label class="form-label" for="password">Mot de passe</label>
-                        <input class="input" type="password" id="password" name="password" placeholder="8 caractères min." autocomplete="new-password" required>
+                        <label class="form-label" for="password">Password</label>
+                        <input class="input" type="password" id="password" name="password" placeholder="8+ characters" autocomplete="new-password" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label" for="password_confirmation">Confirmation</label>
-                        <input class="input" type="password" id="password_confirmation" name="password_confirmation" placeholder="Répétez" autocomplete="new-password" required>
+                        <label class="form-label" for="password_confirmation">Confirm</label>
+                        <input class="input" type="password" id="password_confirmation" name="password_confirmation" placeholder="Repeat it" autocomplete="new-password" required>
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary lp-btn-block">Créer mon compte</button>
+                <button type="submit" class="mt-2 w-full rounded-pill bg-secondary px-6 py-3.5 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgb(244_63_133/0.28)] active:scale-[0.98]">
+                    Create my account
+                </button>
             </form>
 
-            <p class="auth-alt">
-                Déjà inscrit ? <a href="{{ route('login') }}">Connectez-vous</a>
+            <p class="auth-alt mt-5 text-center text-sm font-medium text-body">
+                Already registered? <a href="{{ route('login') }}" class="font-semibold text-textaccent hover:underline">Log in</a>
             </p>
         </div>
     </div>
