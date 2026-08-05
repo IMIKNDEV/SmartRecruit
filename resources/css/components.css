@@ -598,3 +598,26 @@
     .kv dt { color: var(--color-body); font-weight: 500; }
     .kv dd { color: var(--color-dark); font-weight: 600; text-align: right; }
 }
+
+@layer components {
+    /* Page headers used by every interior view (until per-view restyle) */
+    .page-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+    .page-head h1 {
+        font-size: clamp(1.75rem, 3vw, 2.25rem);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+    }
+    .page-sub {
+        margin-top: 0.375rem;
+        font-size: 0.9375rem;
+        color: var(--color-body);
+    }
+}
