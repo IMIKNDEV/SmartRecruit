@@ -1682,21 +1682,23 @@
       if (user) {
         if (document.getElementById('pfName')) document.getElementById('pfName').value = user.name || '';
         if (document.getElementById('pfEmail')) document.getElementById('pfEmail').value = user.email || '';
-        if (document.getElementById('profileName')) document.getElementById('profileName').textContent = user.name || 'Utilisateur';
+        if (document.getElementById('profileName')) document.getElementById('profileName').textContent = user.name || 'User';
         if (document.getElementById('profileEmail')) document.getElementById('profileEmail').textContent = user.email || '';
         if (document.getElementById('profileAvatar')) document.getElementById('profileAvatar').textContent = initials(user.name);
-        if (document.getElementById('profileRole')) document.getElementById('profileRole').textContent = user.role === 'recruiter' ? 'Recruteur' : 'Candidat';
-        if (document.getElementById('kvRole')) document.getElementById('kvRole').textContent = user.role === 'recruiter' ? 'Recruteur' : 'Candidat';
+        if (document.getElementById('profileRole')) document.getElementById('profileRole').textContent = user.role === 'recruiter' ? 'Recruiter' : 'Candidate';
+        if (document.getElementById('kvRole')) document.getElementById('kvRole').textContent = user.role === 'recruiter' ? 'Recruiter' : 'Candidate';
         if (document.getElementById('kvJoined')) document.getElementById('kvJoined').textContent = fmtDate(user.created_at);
       }
 
       form.addEventListener('submit', async function (e) {
         e.preventDefault();
+        const alertWrap = form.querySelector('.form-alert');
+        if (alertWrap) alertWrap.style.display = 'none';
         const btn = form.querySelector('[type="submit"]');
         const pwd = document.getElementById('pfPassword').value;
         const pwd2 = document.getElementById('pfPasswordConfirm').value;
-        if (pwd && pwd.length < 8) { showFormError(form, 'Le mot de passe doit contenir au moins 8 caractères.'); return; }
-        if (pwd !== pwd2) { showFormError(form, 'Les mots de passe ne correspondent pas.'); return; }
+        if (pwd && pwd.length < 8) { showFormError(form, 'Password must be at least 8 characters.'); return; }
+        if (pwd !== pwd2) { showFormError(form, 'Passwords do not match.'); return; }
 
         const payload = { name: document.getElementById('pfName').value.trim(), email: document.getElementById('pfEmail').value.trim() };
         if (pwd) payload.password = pwd;
@@ -1705,13 +1707,13 @@
         try {
           await SR.api.put('/user/profile', payload);
         } catch (err) {
-          if (!USE_MOCKS) { setLoading(btn, false); showFormError(form, err.message || 'Mise à jour impossible'); return; }
+          if (!USE_MOCKS) { setLoading(btn, false); showFormError(form, err.message || 'Unable to update profile'); return; }
         }
         const stored = auth.user() || {};
         auth.set({ token: auth.token(), user: Object.assign({}, stored, { name: payload.name, email: payload.email }) });
         bindSidebarUser();
         setLoading(btn, false);
-        toast('Profil mis à jour', 'success');
+        toast('Profile updated', 'success');
       });
     },
   };
