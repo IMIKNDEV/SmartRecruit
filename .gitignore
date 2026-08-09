@@ -27,3 +27,9 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Container-specific env (contains APP_KEY)
+/docker/.env.container
+
+# Local SQLite dev database (created during local browser testing)
+/smartrecruit

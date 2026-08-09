@@ -43,6 +43,23 @@ class JobOfferController extends Controller
         return new JobOfferResource($jobOffer->load('recruiter'));
     }
 
+    /**
+     * The authenticated recruiter's own offers — both active and archived —
+     * so the "Job offers" management page can list them with their status
+     * (the public index only exposes active offers).
+     */
+    public function mine(Request $request)
+    {
+        $query = $request->user()->jobOffers()
+            ->when($request->filled('status'), function ($q) use ($request) {
+                $q->where('status', $request->input('status'));
+            })
+            ->withCount('applications')
+            ->latest();
+
+        return JobOfferResource::collection($query->paginate($request->integer('per_page', 100)));
+    }
+
     public function store(StoreJobOfferRequest $request)
     {
         $jobOffer = JobOffer::create([

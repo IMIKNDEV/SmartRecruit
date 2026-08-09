@@ -11,9 +11,12 @@ use App\Http\Requests\UpdateApplicationTagsRequest;
 use App\Http\Resources\ApplicationResource;
 use App\Jobs\CalculateMatchingScoreJob;
 use App\Models\Application;
+use App\Models\ApplicationAnalysis;
 use App\Models\JobOffer;
 use App\Services\BadgeService;
+use App\Services\MatchingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ApplicationController extends Controller
 {
@@ -33,6 +36,7 @@ class ApplicationController extends Controller
         }
 
         $exists = Application::query()
+            ->withTrashed()
             ->where('candidate_id', $request->user()->id)
             ->where('job_offer_id', $jobOffer->id)
             ->exists();
@@ -77,19 +81,134 @@ class ApplicationController extends Controller
     public function myApplications(Request $request)
     {
         $applications = $request->user()->applications()
-            ->with(['jobOffer', 'analysis'])
+            ->with(['jobOffer', 'analysis', 'interviews'])
             ->paginate($request->integer('per_page', 15));
 
         return ApplicationResource::collection($applications);
     }
 
+    /**
+     * Recent applications across all of the recruiter's own job offers.
+     * Latest first; deleted (soft-deleted) applications are excluded by the
+     * model's global scope — they only live on in dashboard analytics.
+     */
+    public function recent(Request $request)
+    {
+        $applications = Application::with(['candidate', 'jobOffer', 'analysis', 'interviews'])
+            ->whereHas('jobOffer', fn ($q) => $q->where('recruiter_id', $request->user()->id))
+            ->orderByDesc('created_at')
+            ->paginate($request->integer('per_page', 50));
+
+        return ApplicationResource::collection($applications);
+    }
+
+    /**
+     * Soft-deleted applications across the recruiter's own job offers,
+     * newest deletion first. Only applications whose offer is still visible
+     * are listed (matching the `recent` endpoint).
+     */
+    public function trashed(Request $request)
+    {
+        $applications = Application::onlyTrashed()
+            ->with(['candidate', 'jobOffer', 'analysis'])
+            ->whereHas('jobOffer', fn ($q) => $q->where('recruiter_id', $request->user()->id))
+            ->orderByDesc('deleted_at')
+            ->paginate($request->integer('per_page', 50));
+
+        return ApplicationResource::collection($applications);
+    }
+
+    /**
+     * Restore a soft-deleted application (recruiter, own job offer only).
+     * The application becomes visible again in lists and pipelines.
+     */
+    public function restore(Request $request, int $id)
+    {
+        $application = Application::onlyTrashed()->findOrFail($id);
+
+        $this->authorize('restore', $application);
+
+        $application->restore();
+
+        return new ApplicationResource($application->load(['candidate', 'jobOffer', 'analysis']));
+    }
+
+    /**
+     * Soft-delete an application (recruiter, own job offer only). The row is
+     * kept for the analytical dashboard; only the application lists/pipelines
+     * stop showing it.
+     */
+    public function destroy(Request $request, int $id)
+    {
+        $application = Application::findOrFail($id);
+
+        $this->authorize('delete', $application);
+
+        $application->delete();
+
+        return response()->noContent();
+    }
+
     public function show(Request $request, int $id)
     {
-        $application = Application::with(['candidate', 'jobOffer', 'analysis'])->findOrFail($id);
+        $application = Application::with(['candidate.badges', 'jobOffer', 'analysis', 'interviews'])->findOrFail($id);
 
         $this->authorize('view', $application);
 
         return new ApplicationResource($application);
+    }
+
+    /**
+     * Re-run the AI (Groq) compatibility analysis on demand (recruiter, own
+     * job offer only). Runs synchronously so the recruiter sees the result
+     * immediately; the score + keyword detail are stored for fast reads.
+     */
+    public function analyze(Request $request, int $id)
+    {
+        $application = Application::with(['candidate.badges', 'jobOffer', 'analysis', 'interviews'])->findOrFail($id);
+
+        $this->authorize('view', $application);
+
+        try {
+            $result = (new MatchingService)->calculateScore($application);
+
+            ApplicationAnalysis::updateOrCreate(
+                ['application_id' => $application->id],
+                [
+                    'job_offer_id' => $application->job_offer_id,
+                    'matching_score' => $result['score'],
+                    'matched_keywords' => $result['matched'],
+                    'missing_keywords' => $result['missing'],
+                ]
+            );
+
+            (new BadgeService)->checkAndAward($application->load('analysis'));
+
+            return new ApplicationResource($application->load(['candidate.badges', 'jobOffer', 'analysis', 'interviews']));
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'L\'analyse IA a échoué : '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Stream the candidate's CV (recruiter, own job offer only). Inline
+     * disposition — the front-end fetches it as a blob to view/download.
+     */
+    public function cv(Request $request, int $id)
+    {
+        $application = Application::findOrFail($id);
+
+        $this->authorize('view', $application);
+
+        $disk = Storage::disk('public');
+
+        if (! $application->cv_path || ! $disk->exists($application->cv_path)) {
+            abort(404);
+        }
+
+        return $disk->response($application->cv_path, basename($application->cv_path));
     }
 
     public function updateStatus(UpdateApplicationStatusRequest $request, int $id)
