@@ -8,32 +8,27 @@
 {{-- ============================================================
      HERO — centered copy + interactive Kanban demo (Teamtailor)
 ============================================================ --}}
-<section class="grain relative overflow-hidden bg-canvas pb-16 pt-16 sm:pt-20" aria-label="Introduction">
-    <div class="mx-auto max-w-6xl px-6 text-center">
+<section class="hero-bg grain relative overflow-hidden pb-16 pt-16 sm:pt-20" aria-label="Introduction">
+    <div class="hero-atmosphere" aria-hidden="true">
+        <div class="hero-blob hero-blob-pink"></div>
+        <div class="hero-blob hero-blob-purple"></div>
+        <div class="hero-dots"></div>
+    </div>
+    <div class="relative z-10 mx-auto max-w-6xl px-6 text-center">
         <span data-reveal class="inline-flex items-center gap-2 rounded-pill border border-line bg-white px-4 py-1.5 text-xs font-semibold tracking-wide text-body">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-textaccent" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z"/></svg>
             AI-powered candidate matching
         </span>
 
-        <h1 data-reveal class="heading-display mx-auto mt-6 max-w-4xl">
-            Hire for <span class="relative inline-block">
-                growth.
-                <svg class="swosh" viewBox="0 0 220 40" fill="none" aria-hidden="true" preserveAspectRatio="none">
-                    <path d="M8 30C45 8 120 6 212 18" stroke="#f43f85" stroke-width="7" stroke-linecap="round"/>
-                </svg>
-            </span>
+        <h1 data-reveal class="hero-title heading-display mx-auto max-w-4xl">
+            Hire for <span class="pink-word">growth.</span>
         </h1>
 
-        <p data-reveal class="mx-auto mt-6 max-w-2xl text-lg font-medium text-body sm:text-xl">
-            The ATS loved by candidates and recruiters — with <span class="relative inline-block">
-                <span class="relative z-10 font-semibold text-dark">AI</span>
-                <svg class="swosh" viewBox="0 0 80 24" fill="none" aria-hidden="true" preserveAspectRatio="none">
-                    <path d="M6 18C24 8 52 6 74 12" stroke="#6ebbff" stroke-width="5" stroke-linecap="round"/>
-                </svg>
-            </span> at the core.
+        <p data-reveal class="mx-auto mt-4 max-w-2xl text-lg font-medium text-body sm:text-xl">
+            The ATS loved by candidates and recruiters — with <span class="highlight">AI at the core</span>.
         </p>
 
-        <div data-reveal class="mt-9 flex flex-wrap items-center justify-center gap-3">
+        <div data-reveal class="hero-cta flex flex-wrap items-center justify-center gap-3">
             <x-btn href="{{ route('register') }}" size="lg">Get started</x-btn>
             <x-btn href="{{ route('jobs.index') }}" variant="ghost" size="lg">Explore jobs</x-btn>
         </div>
@@ -43,14 +38,14 @@
     </div>
 
     {{-- Interactive Kanban demo board --}}
-    <div data-reveal class="mx-auto mt-14 max-w-6xl px-6">
-        <div class="overflow-hidden rounded-[32px] border border-line bg-white p-4 shadow-tint sm:p-6">
+    <div data-reveal class="relative z-10 mx-auto mt-14 max-w-6xl px-6">
+        <div class="mockup-shadow overflow-hidden rounded-[32px] border border-line bg-white p-4 sm:p-6">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div class="flex items-center gap-2.5">
-                    <span class="grid size-8 place-items-center rounded-[12px] bg-accent/20 text-sm font-bold text-textaccent">LR</span>
+                    <span class="grid size-8 place-items-center rounded-[12px] bg-accent/20 text-sm font-bold text-textaccent">TA</span>
                     <div>
-                        <p class="text-sm font-semibold leading-tight">Laravel Developer — Agadir</p>
-                        <p class="text-xs font-medium text-body/70">Senior Full-Stack · CDI</p>
+                        <p class="text-sm font-semibold leading-tight">Talent Acquisition Specialist — Agadir</p>
+                        <p class="text-xs font-medium text-body/70">Senior Recruiter · CDI</p>
                     </div>
                 </div>
                 <span class="rounded-pill bg-surface px-3.5 py-1.5 text-xs font-semibold text-body">
@@ -71,12 +66,12 @@
 </section>
 
 {{-- ============================================================
-     TRUST STRIP — scrolling tech-stack marquee
+     TRUST STRIP — scrolling recruitment-workflow marquee
 ============================================================ --}}
-<section class="border-y border-line bg-surface/60 py-6" aria-label="Technologies supported">
+<section class="border-y border-line bg-surface/60 py-6" aria-label="Recruitment workflows">
     <div class="marquee overflow-hidden" aria-hidden="true">
         <div class="marquee-track flex items-center gap-3">
-            @php $stack = ['PHP', 'Laravel', 'MySQL', 'Docker', 'Git', 'React', 'Vue.js', 'Python', 'TypeScript', 'Node.js', 'Kubernetes', 'AWS', 'CI/CD', 'Redis', 'Symfony', 'MongoDB', 'GraphQL', 'Tailwind CSS']; @endphp
+            @php $stack = ['Sourcing', 'Applicant Tracking', 'Talent Pipeline', 'Resume Parsing', 'Interview Scheduling', 'Candidate Scoring', 'Recruiter CRM', 'Job Board Posting', 'Boolean Search', 'Employer Branding', 'Offer Management', 'Reference Checks', 'Onboarding', 'Compliance', 'Talent Analytics', 'Diversity Hiring', 'Workflow Automation', 'Candidate Experience']; @endphp
             @for ($i = 0; $i < 2; $i++)
                 @foreach ($stack as $tech)
                     <span class="flex shrink-0 items-center gap-2 rounded-pill border border-line bg-white px-5 py-2 text-sm font-semibold text-body">
@@ -174,20 +169,20 @@
                         </svg>
                         <span class="score-label">92</span>
                     </div>
-                    <p class="text-sm font-semibold text-body">CV match · Laravel Dev</p>
+                    <p class="text-sm font-semibold text-body">Profile match · DevOps Engineer</p>
                     <div class="mt-3 flex flex-wrap justify-center gap-1.5">
-                        <span class="rounded-pill bg-ok-bg px-3 py-1 text-[11px] font-semibold text-ok">PHP</span>
-                        <span class="rounded-pill bg-ok-bg px-3 py-1 text-[11px] font-semibold text-ok">Laravel</span>
-                        <span class="rounded-pill bg-ok-bg px-3 py-1 text-[11px] font-semibold text-ok">MySQL</span>
-                        <span class="rounded-pill bg-danger-bg px-3 py-1 text-[11px] font-semibold text-danger">Docker</span>
+                        <span class="rounded-pill bg-ok-bg px-3 py-1 text-[11px] font-semibold text-ok">Docker</span>
+                        <span class="rounded-pill bg-ok-bg px-3 py-1 text-[11px] font-semibold text-ok">Kubernetes</span>
+                        <span class="rounded-pill bg-ok-bg px-3 py-1 text-[11px] font-semibold text-ok">CI/CD</span>
+                        <span class="rounded-pill bg-danger-bg px-3 py-1 text-[11px] font-semibold text-danger">Terraform</span>
                     </div>
-                    <p class="mt-3 text-[11px] font-medium text-body/70">Found: PHP, Laravel, MySQL · Missing: Docker</p>
+                    <p class="mt-3 text-[11px] font-medium text-body/70">Found: Docker, Kubernetes, CI/CD · Missing: Terraform</p>
                 </div>
             </div>
             <div class="lg:order-2">
                 <span class="mb-4 inline-grid size-12 place-items-center rounded-[16px] bg-secondary/10 text-secondary"><x-icon name="target" /></span>
-                <h3 class="text-2xl font-semibold tracking-tight">A compatibility score, computed by AI</h3>
-                <p class="mt-3 text-body">At every CV upload, the engine compares the profile against the offer's tech stack and returns a score from 0 to 100, with the keywords found and missing. You see the why, not just the how much.</p>
+                <h3 class="text-2xl font-semibold tracking-tight">A full profile analysis, powered by AI</h3>
+                <p class="mt-3 text-body">At every CV upload, the engine studies the whole profile — experience, skills, education, background — and returns a compatibility score from 0 to 100 with a transparent breakdown of strengths and gaps. You see the why, not just the how much.</p>
                 <ul class="mt-5 space-y-2.5 text-sm font-medium text-body">
                     <li class="flex items-center gap-2.5"><span class="grid size-5 place-items-center rounded-full bg-ok-bg text-ok">✓</span>Runs as a background job — instant 201, no waiting</li>
                     <li class="flex items-center gap-2.5"><span class="grid size-5 place-items-center rounded-full bg-ok-bg text-ok">✓</span>Full transparency for the recruiter and the candidate</li>
@@ -203,24 +198,24 @@
                 <h3 class="text-2xl font-semibold tracking-tight">Productivity tools that scale with you</h3>
                 <p class="mt-3 text-body">Batch actions, saved filters, side-by-side comparison and top-5 shortlists — every repetitive task has been removed so you can focus on the candidates.</p>
                 <div class="mt-5 flex flex-wrap gap-2">
-                    <span class="rounded-pill border border-line bg-white px-4 py-2 text-xs font-semibold text-body">⚡ Batch status updates</span>
-                    <span class="rounded-pill border border-line bg-white px-4 py-2 text-xs font-semibold text-body">🔖 Saved filters</span>
-                    <span class="rounded-pill border border-line bg-white px-4 py-2 text-xs font-semibold text-body">⇄ Compare 2-4 profiles</span>
-                    <span class="rounded-pill border border-line bg-white px-4 py-2 text-xs font-semibold text-body">★ Top-5 shortlist + export</span>
+                    <span class="inline-flex items-center gap-1.5 rounded-pill border border-line bg-white px-4 py-2 text-xs font-semibold text-body"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="text-textaccent" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Batch status updates</span>
+                    <span class="inline-flex items-center gap-1.5 rounded-pill border border-line bg-white px-4 py-2 text-xs font-semibold text-body"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="text-textaccent" aria-hidden="true"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>Saved filters</span>
+                    <span class="inline-flex items-center gap-1.5 rounded-pill border border-line bg-white px-4 py-2 text-xs font-semibold text-body"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="text-textaccent" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Compare 2-4 profiles</span>
+                    <span class="inline-flex items-center gap-1.5 rounded-pill border border-line bg-white px-4 py-2 text-xs font-semibold text-body"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="text-textaccent" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Top-5 shortlist + export</span>
                 </div>
             </div>
             <div aria-hidden="true" class="rounded-[32px] bg-section-green p-8">
                 <div class="rounded-[24px] bg-white/95 p-5 shadow-tint">
                     <div class="flex items-center justify-between">
-                        <p class="text-sm font-semibold">Shortlist — Laravel Dev</p>
+                        <p class="text-sm font-semibold">Shortlist — TA Specialist</p>
                         <span class="rounded-pill bg-accent/20 px-3 py-1 text-[11px] font-bold text-textaccent">CSV · PDF</span>
                     </div>
-                    @php $short = [['Sara El Amrani', 92, 'ok'], ['Amine Tazi', 84, 'ok'], ['Youssef Benali', 78, 'ok'], ['Kenza Idrissi', 65, 'warn']]; @endphp
+                    @php $short = [['Sara El Amrani', 92, 'ok', 'bg-accent/20 text-textaccent'], ['Amine Tazi', 84, 'ok', 'bg-secondary/15 text-secondary'], ['Youssef Benali', 78, 'ok', 'bg-ok/15 text-ok'], ['Kenza Idrissi', 65, 'warn', 'bg-section-yellow/60 text-dark']]; @endphp
                     <ul class="mt-4 space-y-2.5">
                         @foreach ($short as $idx => $row)
                             <li class="flex items-center gap-3 rounded-[16px] border border-line bg-white px-3.5 py-2.5">
                                 <span class="mono text-xs font-semibold text-body/60">#{{ $idx + 1 }}</span>
-                                <span class="size-8 rounded-[10px] bg-surface text-sm font-bold text-dark">{{ substr($row[0], 0, 1) }}</span>
+                                <span class="grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold {{ $row[3] }}">{{ substr($row[0], 0, 1) }}</span>
                                 <span class="flex-1 truncate text-sm font-semibold">{{ $row[0] }}</span>
                                 <span class="mono text-sm font-semibold {{ $row[2] === 'ok' ? 'text-ok' : 'text-warn' }}">{{ $row[1] }}</span>
                             </li>
@@ -291,18 +286,18 @@
     'use strict';
 
     /* ---- Demo data: 12 sample candidates ---- */
-    var DEMO_APPS = [      { id: 1,  name: 'Sara El Amrani', role: 'Laravel Developer',   status: 'interview', score: 92, matched: ['PHP', 'Laravel', 'MySQL'], missing: ['Docker'], tag: 'Prioritaire' },
-      { id: 2,  name: 'Amine Tazi',     role: 'Senior Laravel Dev',  status: 'interview', score: 88, matched: ['PHP', 'Laravel'],        missing: ['Docker', 'Git'], tag: '' },
-      { id: 3,  name: 'Nadia Bouhlel',  role: 'Full-Stack Developer',status: 'interview', score: 81, matched: ['PHP', 'MySQL'],          missing: ['Laravel', 'Docker'], tag: 'Interview planned' },
-      { id: 4,  name: 'Mehdi Alaoui',   role: 'Backend Engineer',    status: 'interview', score: 76, matched: ['PHP'],                  missing: ['Laravel', 'MySQL', 'Docker'], tag: '' },
-      { id: 5,  name: 'Youssef Benali', role: 'Symfony Developer',   status: 'received',  score: 71, matched: ['PHP', 'MySQL'],          missing: ['Laravel', 'Docker'], tag: 'To follow up' },
-      { id: 6,  name: 'Kenza Idrissi',  role: 'Full-Stack Dev',      status: 'received',  score: 64, matched: ['PHP'],                  missing: ['Laravel', 'MySQL', 'Docker'], tag: '' },
-      { id: 7,  name: 'Omar Chraibi',   role: 'PHP Developer',       status: 'received',  score: 58, matched: ['MySQL'],                missing: ['PHP', 'Laravel', 'Docker'], tag: '' },
-      { id: 8,  name: 'Salma Berrada',  role: 'Backend Developer',   status: 'received',  score: 49, matched: [],                       missing: ['PHP', 'Laravel', 'MySQL', 'Docker'], tag: '' },
-      { id: 9,  name: 'Rania Fassi',    role: 'Laravel Architect',   status: 'accepted',  score: 95, matched: ['PHP', 'Laravel', 'MySQL', 'Docker'], missing: [], tag: 'Offer sent' },
-      { id: 10, name: 'Hamza Ouazzani', role: 'DevOps Engineer',     status: 'accepted',  score: 83, matched: ['Docker'],               missing: ['Laravel'], tag: 'Offer sent' },
-      { id: 11, name: 'Ilias Mansouri', role: 'Junior Developer',    status: 'refused',   score: 41, matched: ['PHP'],                  missing: ['Laravel', 'MySQL', 'Docker'], tag: '' },
-      { id: 12, name: 'Douae Bennani',  role: 'UI Developer',        status: 'refused',   score: 37, matched: [],                       missing: ['PHP', 'Laravel', 'MySQL', 'Docker'], tag: '' },
+    var DEMO_APPS = [      { id: 1,  name: 'Sara El Amrani', role: 'Product Manager',        status: 'interview', score: 92, matched: ['Roadmap', 'Stakeholders', 'Sprint planning'], missing: ['Analytics'], tag: 'Prioritaire' },
+      { id: 2,  name: 'Amine Tazi',     role: 'DevOps Engineer',        status: 'interview', score: 88, matched: ['Docker', 'Kubernetes'],     missing: ['CI/CD', 'AWS'], tag: '' },
+      { id: 3,  name: 'Nadia Bouhlel',  role: 'UI Designer',            status: 'interview', score: 81, matched: ['Figma', 'Prototyping'],    missing: ['Design systems', 'UX research'], tag: 'Interview planned' },
+      { id: 4,  name: 'Mehdi Alaoui',   role: 'Backend Developer',      status: 'interview', score: 76, matched: ['PHP'],                     missing: ['Laravel', 'MySQL', 'API design'], tag: '' },
+      { id: 5,  name: 'Youssef Benali', role: 'Frontend Developer',     status: 'received',  score: 71, matched: ['React', 'TypeScript'],    missing: ['Testing', 'CSS'], tag: 'To follow up' },
+      { id: 6,  name: 'Kenza Idrissi',  role: 'Data Analyst',           status: 'received',  score: 64, matched: ['SQL'],                    missing: ['Python', 'Power BI', 'Statistics'], tag: '' },
+      { id: 7,  name: 'Omar Chraibi',   role: 'QA Engineer',            status: 'received',  score: 58, matched: ['Test automation'],       missing: ['Cypress', 'CI/CD', 'Load testing'], tag: '' },
+      { id: 8,  name: 'Salma Berrada',  role: 'Security Engineer',      status: 'received',  score: 49, matched: [],                        missing: ['OWASP', 'Penetration testing', 'IAM', 'Auditing'], tag: '' },
+      { id: 9,  name: 'Rania Fassi',    role: 'Software Architect',     status: 'accepted',  score: 95, matched: ['System design', 'Microservices', 'Cloud', 'Scalability'], missing: [], tag: 'Offer sent' },
+      { id: 10, name: 'Hamza Ouazzani', role: 'Mobile Developer',       status: 'accepted', score: 83, matched: ['React Native'],           missing: ['Swift'], tag: 'Offer sent' },
+      { id: 11, name: 'Ilias Mansouri', role: 'Scrum Master',           status: 'refused',   score: 41, matched: ['Agile'],                  missing: ['Facilitation', 'Retrospectives', 'Jira'], tag: '' },
+      { id: 12, name: 'Douae Bennani',  role: 'UX Researcher',          status: 'refused',   score: 37, matched: [],                        missing: ['Interviews', 'Usability testing', 'Personas', 'Surveys'], tag: '' },
     ];
 
     var COLUMNS = [
@@ -386,7 +381,7 @@
       var html = '<div style="text-align:center;padding:6px 0 4px">' +
         '<span class="avatar" style="width:56px;height:56px;font-size:20px">' + card.dataset.name.charAt(0) + '</span>' +
         '<p class="mono" style="margin-top:12px;font-weight:700;font-size:17px">' + card.dataset.name + '</p>' +
-        '<p style="margin-top:2px;font-size:13px;font-weight:500;color:var(--slate)">' + card.dataset.role + ' · Laravel Developer — Agadir</p>' +
+        '<p style="margin-top:2px;font-size:13px;font-weight:500;color:var(--slate)">' + card.dataset.role + ' · Talent Acquisition Specialist — Agadir</p>' +
         '<div class="score-ring-wrap" style="margin:14px auto 0">' +
           '<svg class="score-ring" viewBox="0 0 54 54" width="100%" height="100%"><circle class="score-ring-track" cx="27" cy="27" r="24"></circle>' +
           '<circle class="score-ring-fill" cx="27" cy="27" r="24" stroke="' + (score >= 80 ? '#16a34a' : score >= 50 ? '#f5a623' : '#ef4444') + '" stroke-dasharray="' + (2 * Math.PI * 24) + '" stroke-dashoffset="' + (2 * Math.PI * 24 - (score / 100) * 2 * Math.PI * 24) + '"></circle></svg>' +

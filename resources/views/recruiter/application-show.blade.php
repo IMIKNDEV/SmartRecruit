@@ -13,7 +13,7 @@
         <h1 id="appName">Candidature</h1>
         <p class="page-sub" id="appJob">—</p>
     </div>
-    <a class="btn btn-ghost" href="#" id="appBackLink"><x-icon name="arrow-left" :size="16" /> Retour</a>
+    <a class="btn btn-ghost" href="#" id="appBackLink"><x-icon name="arrow-left" :size="16" /> Applications</a>
 </div>
 
 <div id="appDetail" class="detail-grid" style="align-items:start">

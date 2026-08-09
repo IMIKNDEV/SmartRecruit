@@ -29,13 +29,16 @@ class DashboardController extends Controller
 
         $jobIds = $jobs->pluck('id');
 
-        $applications = Application::with(['candidate.badges', 'jobOffer', 'analysis', 'interviews'])
+        // withTrashed(): soft-deleted applications keep counting in the
+        // analytics (funnels, time-to-hire, score distribution, trends…).
+        $applications = Application::withTrashed()
+            ->with(['candidate.badges', 'jobOffer', 'analysis', 'interviews'])
             ->whereIn('job_offer_id', $jobIds)
             ->orderByDesc('created_at')
             ->get();
 
         $interviews = Interview::with('application')
-            ->whereHas('application', fn ($q) => $q->whereIn('job_offer_id', $jobIds))
+            ->whereHas('application', fn ($q) => $q->withTrashed()->whereIn('job_offer_id', $jobIds))
             ->get();
 
         return response()->json([

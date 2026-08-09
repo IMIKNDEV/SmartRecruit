@@ -39,7 +39,7 @@
 
   function fmtSalary(s) {
     if (s === null || s === undefined || s === '') return 'Not disclosed';
-    return Number(s).toLocaleString('en-GB', { maximumFractionDigits: 0 }) + ' €';
+    return Number(s).toLocaleString('fr-MA', { maximumFractionDigits: 0 }) + ' MAD';
   }
 
   const STATUS_LABELS = {
@@ -50,6 +50,7 @@
   const STATUS_PILL_CLASS = {
     received: 'pill-slate', interview: '', accepted: 'pill-success', refused: 'pill-danger',
     scheduled: '', completed: 'pill-success', cancelled: 'pill-danger',
+    active: 'pill-success', archived: 'pill-slate',
   };
 
   const TAG_LABELS = {
@@ -89,7 +90,7 @@
   }
 
   function avatar(name, size) {
-    return '<span class="avatar' + (size === 'sm' ? '" style="width:34px;height:34px;font-size:12px' : '"') + '>' +
+    return '<span class="avatar' + (size === 'sm' ? '" style="width:40px;height:40px;font-size:14px"' : '"') + '>' +
       escapeHtml(initials(name)) + '</span>';
   }
 
@@ -149,6 +150,7 @@
     note: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
     briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/>',
+    video: '<path d="m22 8-6 4 6 4V8z"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
   };
 
   function icon(name, size) {
@@ -270,6 +272,10 @@
     fromStatus: null,
     fromCol: null,
     beforeEl: null,
+    /* Touch/pen pointer-drag state */
+    _touch: null,
+    /* Shared ghost element (one per board, lazily created) */
+    _ghost: null,
 
     enable: function (board, opts) {
       if (!board || board.dataset.kanban) return;
@@ -290,24 +296,133 @@
       const colSel = opts.cols || '.kanban-col';
       const self = this;
 
+      /* ---- Shared helpers ---- */
+
+      /* Find the card in `col` that the pointer is above — use it as the
+         insertion reference so the dropped card lands at the correct position.
+         Returns null when the pointer is below every card (append). */
+      function findInsertRef(col, clientY) {
+        var cards = Array.prototype.slice.call(col.querySelectorAll(cardsSel + ':not(.dragging)'));
+        for (var i = 0; i < cards.length; i++) {
+          var r = cards[i].getBoundingClientRect();
+          if (clientY < r.top + r.height / 2) return cards[i];
+        }
+        return null;
+      }
+
+      /* Lazily create the single ghost element for the board. */
+      function ensureGhost() {
+        if (!self._ghost || !self._ghost.parentNode) {
+          var g = document.createElement('div');
+          g.className = 'drop-ghost';
+          self._ghost = g;
+        }
+        return self._ghost;
+      }
+
+      /* Position the ghost inside `col` at the correct slot. */
+      function positionGhost(col, clientY) {
+        var ghost = ensureGhost();
+        var ref = findInsertRef(col, clientY);
+        /* Only move DOM when needed to avoid layout thrash */
+        if (ref) {
+          if (ghost.parentNode !== col || ghost.nextElementSibling !== ref) {
+            col.insertBefore(ghost, ref);
+          }
+        } else {
+          if (ghost.parentNode !== col || ghost.nextSibling !== null) {
+            col.appendChild(ghost);
+          }
+        }
+      }
+
+      /* Remove `.drag-over` from all columns except `keep`. */
+      function setDragOver(col) {
+        board.querySelectorAll(colSel).forEach(function (c) {
+          if (c === col) { c.classList.add('drag-over'); }
+          else { c.classList.remove('drag-over'); }
+        });
+      }
+
       function clearOver() {
         board.querySelectorAll(colSel).forEach(function (c) {
           c.classList.remove('drag-over');
         });
-        board.querySelectorAll('.drop-ghost').forEach(function (g) {
-          g.remove();
-        });
+        if (self._ghost && self._ghost.parentNode) {
+          self._ghost.parentNode.removeChild(self._ghost);
+        }
       }
 
       function refreshCounters() {
         board.querySelectorAll(colSel).forEach(function (col) {
-          const count = col.querySelector('.kanban-count');
+          var count = col.querySelector('.kanban-count');
           if (count) count.textContent = String(col.querySelectorAll(cardsSel).length);
         });
       }
 
+      /* Find the column under (clientX, clientY) using elementFromPoint. */
+      function colFromPoint(x, y) {
+        /* Callers set the dragged card's pointer-events to 'none' first, so
+           elementFromPoint returns the element beneath it, not the card. */
+        var el = document.elementFromPoint(x, y);
+        return el ? el.closest(colSel) : null;
+      }
+
+      /* ---- Shared drop logic (used by HTML5 drop AND pointerup) ---- */
+      function commitDrop(card, col, clientY) {
+        var toStatus = col.dataset.status || col.dataset.col;
+        var fromStatus = card.dataset.status;
+        var wasSame = (fromStatus === toStatus);
+
+        /* Same-column reorder: just do the positional insert + counters,
+           skip canDrop / onOptimistic / onDrop — nothing to persist. */
+        if (wasSame) {
+          var ref = findInsertRef(col, clientY);
+          col.insertBefore(card, ref);
+          card.classList.remove('dragging');
+          clearOver();
+          refreshCounters();
+          return;
+        }
+
+        /* Cross-column: run the guard */
+        var guard = opts.canDrop ? opts.canDrop(fromStatus, toStatus) : true;
+        var reject = function (msg) {
+          if (self.fromCol) self.fromCol.insertBefore(card, self.beforeEl);
+          card.classList.remove('dragging');
+          clearOver();
+          refreshCounters();
+          if (msg) toast(msg, 'error');
+        };
+
+        if (!guard) {
+          reject('Cannot move from ' + fromStatus + ' to ' + toStatus);
+          return;
+        }
+
+        /* Positional insert into the new column */
+        var ref2 = findInsertRef(col, clientY);
+        col.insertBefore(card, ref2);
+        card.dataset.status = toStatus;
+        card.classList.remove('dragging');
+        card.classList.add('drop-in');
+        setTimeout(function () { card.classList.remove('drop-in'); }, 400);
+        clearOver();
+        refreshCounters();
+
+        if (opts.onOptimistic) opts.onOptimistic(card, toStatus);
+
+        if (opts.onDrop) {
+          opts.onDrop(card, fromStatus, toStatus, function (ok) {
+            if (ok === false) reject();
+          });
+        }
+      }
+
+      /* ---- HTML5 Drag & Drop (mouse / keyboard) ---- */
+
       board.addEventListener('dragstart', function (e) {
-        const card = e.target.closest(cardsSel);
+        var card = e.target.closest(cardsSel);
         if (!card) return;
         self.dragId = card.dataset.id;
         self.fromStatus = card.dataset.status;
@@ -319,22 +434,12 @@
       });
 
       board.addEventListener('dragover', function (e) {
-        const col = e.target.closest(colSel);
+        var col = e.target.closest(colSel);
         if (!col) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        col.classList.add('drag-over');
-        // Positional drop ghost inside the target column
-        const ghost = col.querySelector('.drop-ghost');
-        const cards = Array.prototype.slice.call(col.querySelectorAll(cardsSel));
-        const after = cards.find(function (c) {
-          const r = c.getBoundingClientRect();
-          return e.clientY < r.top + r.height / 2;
-        }) || null;
-        if (ghost) ghost.remove();
-        const g = document.createElement('div');
-        g.className = 'drop-ghost';
-        if (after) col.insertBefore(g, after); else col.appendChild(g);
+        setDragOver(col);
+        positionGhost(col, e.clientY);
       });
 
       board.addEventListener('dragleave', function (e) {
@@ -343,51 +448,14 @@
 
       board.addEventListener('drop', function (e) {
         e.preventDefault();
-        const col = e.target.closest(colSel);
-        clearOver();
-        const card = board.querySelector(cardsSel + '.dragging');
-        if (!col || !card) return;
-        const toStatus = col.dataset.status || col.dataset.col;
-        const fromStatus = card.dataset.status;
-
-        if (fromStatus === toStatus) {
-          card.classList.remove('dragging');
-          refreshCounters();
-          return;
-        }
-
-        const guard = opts.canDrop ? opts.canDrop(fromStatus, toStatus) : true;
-        const reject = function (msg) {
-          if (self.fromCol) self.fromCol.insertBefore(card, self.beforeEl);
-          card.classList.remove('dragging');
-          refreshCounters();
-          if (msg) toast(msg, 'error');
-        };
-
-        if (!guard) {
-          reject('Cannot move from ' + fromStatus + ' to ' + toStatus);
-          return;
-        }
-
-        // Optimistic move
-        col.appendChild(card);
-        card.dataset.status = toStatus;
-        card.classList.remove('dragging');
-        card.classList.add('drop-in');
-        setTimeout(function () { card.classList.remove('drop-in'); }, 400);
-        refreshCounters();
-
-        if (opts.onOptimistic) opts.onOptimistic(card, toStatus);
-
-        if (opts.onDrop) {
-          opts.onDrop(card, fromStatus, toStatus, function (ok) {
-            if (ok === false) reject();
-          });
-        }
+        var col = e.target.closest(colSel);
+        var card = board.querySelector(cardsSel + '.dragging');
+        if (!col || !card) { clearOver(); return; }
+        commitDrop(card, col, e.clientY);
       });
 
       board.addEventListener('dragend', function (e) {
-        const card = e.target.closest(cardsSel);
+        var card = e.target.closest(cardsSel);
         if (card) card.classList.remove('dragging');
         clearOver();
         refreshCounters();
@@ -396,6 +464,88 @@
         self.fromCol = null;
         self.beforeEl = null;
       });
+
+      /* ---- Touch / Pen Pointer Events (HTML5 DnD doesn't work on touch) ---- */
+
+      board.addEventListener('pointerdown', function (e) {
+        if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+        var card = e.target.closest(cardsSel);
+        if (!card) return;
+        self._touch = {
+          id: e.pointerId,
+          card: card,
+          startX: e.clientX,
+          startY: e.clientY,
+          currentX: e.clientX,
+          currentY: e.clientY,
+          active: false,
+        };
+        try { card.setPointerCapture(e.pointerId); } catch (err) {}
+      }, { passive: true });
+
+      board.addEventListener('pointermove', function (e) {
+        var t = self._touch;
+        if (!t || e.pointerId !== t.id) return;
+        t.currentX = e.clientX;
+        t.currentY = e.clientY;
+
+        /* Activate only after 8px slop so taps still open modals */
+        if (!t.active) {
+          var dx = e.clientX - t.startX;
+          var dy = e.clientY - t.startY;
+          if (dx * dx + dy * dy <= 64) return; // 8px^2
+          t.active = true;
+          /* Mirror dragstart state */
+          self.dragId = t.card.dataset.id;
+          self.fromStatus = t.card.dataset.status;
+          self.fromCol = t.card.closest(colSel);
+          self.beforeEl = t.card.nextElementSibling;
+          t.card.classList.add('dragging');
+        }
+
+        /* Find column under pointer and run drag-over + ghost logic */
+        t.card.style.pointerEvents = 'none';
+        var col = colFromPoint(e.clientX, e.clientY);
+        t.card.style.pointerEvents = '';
+        if (col) {
+          setDragOver(col);
+          positionGhost(col, e.clientY);
+        } else {
+          clearOver();
+        }
+      }, { passive: true });
+
+      function endPointer(e, isCancel) {
+        var t = self._touch;
+        if (!t || e.pointerId !== t.id) return;
+
+        if (t.active) {
+          t.card.style.pointerEvents = 'none';
+          var col = colFromPoint(t.currentX, t.currentY);
+          t.card.style.pointerEvents = '';
+
+          if (isCancel || !col) {
+            /* Revert to original position */
+            if (self.fromCol) self.fromCol.insertBefore(t.card, self.beforeEl);
+            t.card.classList.remove('dragging');
+            clearOver();
+            refreshCounters();
+          } else {
+            commitDrop(t.card, col, t.currentY);
+          }
+        }
+
+        /* Always clean up */
+        t.card = null;
+        self._touch = null;
+        self.dragId = null;
+        self.fromStatus = null;
+        self.fromCol = null;
+        self.beforeEl = null;
+      }
+
+      board.addEventListener('pointerup', function (e) { endPointer(e, false); }, { passive: true });
+      board.addEventListener('pointercancel', function (e) { endPointer(e, true); }, { passive: true });
     },
   };
   SR.kanban = kanban;
@@ -408,6 +558,7 @@
     { id: 4, title: 'Ingénieur DevOps & Cloud', description: 'Nous recherchons un ingénieur DevOps pour industrialiser notre chaîne de déploiement et fiabiliser nos environnements.\n\nMissions :\n- Mettre en place CI/CD avec GitHub Actions\n- Administrer les conteneurs Docker et Kubernetes\n- Surveiller et optimiser les coûts cloud', tech_stack: 'Docker, Kubernetes, CI/CD, AWS', tech_stack_array: ['Docker', 'Kubernetes', 'CI/CD', 'AWS'], contract_type: 'CDD', salary: 19000, deadline: '2026-10-10', status: 'active', applications_count: 9, created_at: '2026-07-28T11:00:00+00:00' },
     { id: 5, title: 'Développeur Front-End Vue.js', description: 'Rejoignez une équipe moderne pour développer des interfaces élégantes avec Vue.js.\n\nMissions :\n- Développer des composants réutilisables\n- Optimiser les performances d’affichage\n- Participer à la refonte de l’application', tech_stack: 'Vue.js, JavaScript, CSS, Vite', tech_stack_array: ['Vue.js', 'JavaScript', 'CSS', 'Vite'], contract_type: 'Alternance', salary: 8000, deadline: '2026-09-05', status: 'active', applications_count: 15, created_at: '2026-07-30T15:00:00+00:00' },
     { id: 6, title: 'Data Analyst', description: 'Nous cherchons un data analyst pour transformer nos données en décisions éclairées.\n\nMissions :\n- Analyser les indicateurs de performance\n- Construire des dashboards de pilotage\n- Automatiser les rapports récurrents', tech_stack: 'SQL, Python, Power BI', tech_stack_array: ['SQL', 'Python', 'Power BI'], contract_type: 'CDI', salary: 15000, deadline: '2026-09-20', status: 'active', applications_count: 7, created_at: '2026-08-01T10:00:00+00:00' },
+    { id: 7, title: 'Développeur Cobol Legacy', description: 'Offre historiquement publiée, désormais archivée.\n\nMissions :\n- Maintenir le système existant\n- Documenter les flux\n- Transférer les compétences', tech_stack: 'COBOL, JCL', tech_stack_array: ['COBOL', 'JCL'], contract_type: 'CDD', salary: 12000, deadline: '2026-06-30', status: 'archived', applications_count: 3, created_at: '2026-06-10T09:00:00+00:00' },
   ];
 
   const MOCK_CANDIDATES = [
@@ -494,10 +645,88 @@
     { id: 4, application_id: 1, candidate_name: 'Sara El Amrani', job_title: 'Développeur Laravel Senior', scheduled_at: '2026-08-14T09:00:00+00:00', link: '', status: 'cancelled', score_technique: null, score_communication: null, score_motivation: null },
   ];
 
+  // Applications submitted by the logged-in candidate in mock mode.
+  // Persisted in localStorage so they survive navigation and appear in "Mes candidatures".
+  const MOCK_USER_APPS_KEY = 'sr_mock_user_apps';
+  let MOCK_USER_APPS = loadMockUserApps();
+  function loadMockUserApps() {
+    try { return JSON.parse(localStorage.getItem(MOCK_USER_APPS_KEY) || '[]'); }
+    catch (e) { return []; }
+  }
+  function saveMockUserApps() {
+    try { localStorage.setItem(MOCK_USER_APPS_KEY, JSON.stringify(MOCK_USER_APPS)); } catch (e) { /* storage full/unavailable */ }
+  }
+
+  // Shared cross-role overrides so recruiter pipeline actions (status moves,
+  // interview scheduling) are visible to the candidate view even in demo/mock
+  // mode. Keyed by application id; only read when data came from the mock store.
+  const MOCK_STATUS_KEY = 'sr_mock_statuses';       // { appId: status }
+  const MOCK_INTERVIEWS_KEY = 'sr_mock_interviews'; // { appId: [interview…] }
+  function mockOverrides() {
+    let statuses = {}, interviews = {};
+    try { statuses = JSON.parse(localStorage.getItem(MOCK_STATUS_KEY) || '{}'); } catch (e) { statuses = {}; }
+    try { interviews = JSON.parse(localStorage.getItem(MOCK_INTERVIEWS_KEY) || '{}'); } catch (e) { interviews = {}; }
+    return { statuses: statuses, interviews: interviews };
+  }
+  function saveMockStatus(appId, status) {
+    const o = mockOverrides();
+    o.statuses[appId] = status;
+    try { localStorage.setItem(MOCK_STATUS_KEY, JSON.stringify(o.statuses)); } catch (e) { /* ignore */ }
+  }
+  function saveMockInterview(appId, iv) {
+    const o = mockOverrides();
+    const list = o.interviews[appId] || [];
+    const idx = list.findIndex(function (x) { return x.id === iv.id; });
+    if (idx === -1) list.push(iv); else list[idx] = iv;
+    o.interviews[appId] = list;
+    try { localStorage.setItem(MOCK_INTERVIEWS_KEY, JSON.stringify(o.interviews)); } catch (e) { /* ignore */ }
+  }
+  function applyMockOverrides(a) {
+    if (!a) return a;
+    const o = mockOverrides();
+    if (o.statuses[a.id] !== undefined) a.status = o.statuses[a.id];
+    if (o.interviews[a.id] !== undefined) a.interviews = o.interviews[a.id];
+    return a;
+  }
+
+  // Applications the recruiter deleted in mock/demo mode. Persisted in
+  // localStorage so the deletion survives navigation (same key the recruiter
+  // and candidate views share — a demo-deleted app disappears everywhere).
+  const MOCK_DELETED_APPS_KEY = 'sr_mock_deleted_apps';
+  function mockDeletedAppIds() {
+    try { return JSON.parse(localStorage.getItem(MOCK_DELETED_APPS_KEY) || '[]'); }
+    catch (e) { return []; }
+  }
+  function saveMockDeletedApp(appId) {
+    const list = mockDeletedAppIds();
+    if (list.indexOf(appId) === -1) list.push(appId);
+    try { localStorage.setItem(MOCK_DELETED_APPS_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ }
+  }
+  function isMockAppDeleted(appId) {
+    return mockDeletedAppIds().indexOf(Number(appId)) !== -1;
+  }
+
+  function persistMockApplication(jobId, coverText) {
+    const user = auth.user();
+    const job = SR.mock.job(jobId);
+    if (MOCK_USER_APPS.some(function (a) { return a.candidate.id === user.id && a.job_offer_id === Number(jobId); })) return;
+    MOCK_USER_APPS.unshift({
+      id: Date.now(), matching_score: null, matched_keywords: [], missing_keywords: [],
+      tags: [], status: 'received', cv_path: '', cover_letter: coverText, notes: '', comments: '',
+      candidate: { id: user.id, name: user.name, email: user.email, role: 'candidate', avatar: null, badges: [] },
+      job_offer: job || { id: Number(jobId), title: 'Offre #' + jobId, contract_type: '', tech_stack_array: [] },
+      job_offer_id: Number(jobId),
+      interviews: [],
+      created_at: new Date().toISOString(),
+    });
+    saveMockUserApps();
+  }
+
   function mockJobs() { return MOCK_JOBS; }
   function mockJob(id) { return MOCK_JOBS.find(function (j) { return j.id === Number(id); }); }
   function mockApplications(jobId) {
-    return MOCK_CANDIDATES.filter(function (c) { return !jobId || c.job === Number(jobId); })
+    const userApps = MOCK_USER_APPS.filter(function (a) { return !jobId || a.job_offer_id === Number(jobId); });
+    const seeded = MOCK_CANDIDATES.filter(function (c) { return !jobId || c.job === Number(jobId); })
       .map(function (c) {
         return {
           id: c.id, matching_score: c.score, matched_keywords: c.matched, missing_keywords: c.missing,
@@ -506,15 +735,19 @@
           job_offer: mockJob(c.job), interviews: c.interviews, created_at: c.applied_at,
         };
       });
+    return userApps.concat(seeded)
+      .filter(function (a) { return !isMockAppDeleted(a.id); })
+      .map(applyMockOverrides);
   }
   function mockApplication(id) {
+    if (isMockAppDeleted(id)) return null;
     const c = MOCK_CANDIDATES.find(function (x) { return x.id === Number(id); });
-    return mockApplications().find(function (a) { return a.id === Number(id); }) || (c ? {
+    return applyMockOverrides(mockApplications().find(function (a) { return a.id === Number(id); }) || (c ? {
       id: c.id, matching_score: c.score, matched_keywords: c.matched, missing_keywords: c.missing,
       tags: c.tags, status: c.status, cv_path: '', cover_letter: c.cover_letter, notes: c.notes, comments: '',
       candidate: { id: c.id, name: c.name, email: c.email, role: 'candidate', avatar: null, badges: [] },
       job_offer: mockJob(c.job), interviews: c.interviews, created_at: c.applied_at,
-    } : null);
+    } : null));
   }
   function mockSuggestions(appId) {
     const cur = mockApplication(appId);
@@ -677,7 +910,17 @@
       const opts = form.querySelectorAll('.role-option');
       opts.forEach(function (opt) {
         opt.addEventListener('click', function () {
-          opts.forEach(function (o) { o.classList.remove('active'); o.setAttribute('aria-pressed', 'false'); });
+          opts.forEach(function (o) {
+            o.classList.remove('active');
+            o.setAttribute('aria-pressed', 'false');
+            // The selected-look classes live on the buttons' markup (border-secondary
+            // bg-secondary/5 vs border-line bg-white) — swap them so the highlight
+            // actually follows the clicked role.
+            o.classList.toggle('border-secondary', o === opt);
+            o.classList.toggle('bg-secondary/5', o === opt);
+            o.classList.toggle('border-line', o !== opt);
+            o.classList.toggle('bg-white', o !== opt);
+          });
           opt.classList.add('active');
           opt.setAttribute('aria-pressed', 'true');
           selectedRole = opt.dataset.role;
@@ -1132,6 +1375,13 @@
           const chips = (j.tech_stack_array || []).slice(0, 3).map(function (t) {
             return '<span class="chip" style="font-size:11.5px">' + escapeHtml(t) + '</span>';
           }).join('');
+          const archived = j.status === 'archived';
+          const actions = '<a class="btn btn-sm btn-ghost" href="/recruiter/jobs/' + j.id + '/applications">Pipeline</a> ' +
+            '<a class="btn btn-sm btn-ghost" href="/recruiter/jobs/' + j.id + '/edit">Edit</a> ' +
+            (archived
+              ? '<button class="btn btn-sm btn-ghost" data-action="restore" data-id="' + j.id + '" data-title="' + escapeHtml(j.title) + '">Restore</button> ' +
+                '<button class="btn btn-sm btn-ghost-danger" data-action="delete" data-id="' + j.id + '" data-title="' + escapeHtml(j.title) + '">Delete</button>'
+              : '<button class="btn btn-sm btn-ghost-danger" data-action="archive" data-id="' + j.id + '" data-title="' + escapeHtml(j.title) + '">Archive</button>');
           return '<tr>' +
             '<td><div style="font-weight:600;color:var(--ink)">' + escapeHtml(j.title) + '</div>' +
             '<div class="chips" style="gap:4px;margin-top:4px">' + chips + '</div></td>' +
@@ -1139,31 +1389,53 @@
             '<td class="mono" style="color:var(--slate)">' + fmtDate(j.deadline) + '</td>' +
             '<td>' + pipelineHtml(j) + '</td>' +
             '<td>' + statusPill(j.status) + '</td>' +
-            '<td style="text-align:right;white-space:nowrap">' +
-            '<a class="btn btn-sm btn-ghost" href="/recruiter/jobs/' + j.id + '/applications">Pipeline</a> ' +
-            '<a class="btn btn-sm btn-ghost" href="/recruiter/jobs/' + j.id + '/edit">Edit</a> ' +
-            '<button class="btn btn-sm btn-ghost-danger" data-action="archive" data-id="' + j.id + '" data-title="' + escapeHtml(j.title) + '">Archive</button>' +
-            '</td></tr>';
+            '<td style="text-align:right;white-space:nowrap">' + actions + '</td></tr>';
         }).join('');
       }
 
       tbody.addEventListener('click', function (e) {
-        const btn = e.target.closest('[data-action="archive"]');
+        const btn = e.target.closest('[data-action]');
         if (!btn) return;
         const id = Number(btn.dataset.id);
+        const action = btn.dataset.action;
+        const title = btn.dataset.title;
+
+        const confirmHtml = action === 'delete'
+          ? '<p style="font-size:14px;color:var(--slate);margin:0 0 18px">Permanently delete « ' + title + ' »? It will be removed from the archived list and its applications will be lost.</p>'
+          : '<p style="font-size:14px;color:var(--slate);margin:0 0 18px">' + (action === 'archive' ? 'Archive « ' + title + ' »? It will be hidden from the public site but stays in your archived list.' : 'Restore « ' + title + ' »? It will be visible on the public site again.') + '</p>';
+        const confirmLabel = action === 'delete' ? 'Delete' : action === 'archive' ? 'Archive' : 'Restore';
+        const confirmClass = action === 'delete' ? 'btn btn-danger' : 'btn btn-primary';
+
         SR.modal.open(
-          '<p style="font-size:14px;color:var(--slate);margin:0 0 18px">Archive « ' + btn.dataset.title + ' »? It will be hidden from the public site.</p>' +
+          confirmHtml +
           '<div style="display:flex;justify-content:flex-end;gap:10px">' +
           '<button class="btn btn-ghost" onclick="SR.modal.close()">Cancel</button>' +
-          '<button class="btn btn-danger" id="confirmArchive">Archive</button></div>',
-          { title: 'Archive job offer' }
+          '<button class="' + confirmClass + '" id="confirmAction">' + confirmLabel + '</button></div>',
+          { title: (action === 'delete' ? 'Delete' : action === 'archive' ? 'Archive' : 'Restore') + ' job offer' }
         );
-        document.getElementById('confirmArchive').addEventListener('click', async function () {
-          try { await SR.api.del('/job-offers/' + id); } catch (err) { if (!USE_MOCKS) throw err; }
-          jobs = jobs.filter(function (j) { return j.id !== id; });
+
+        document.getElementById('confirmAction').addEventListener('click', async function () {
+          const btnEl = this;
+          SR.helpers.setLoading(btnEl, true);
+          try {
+            if (action === 'archive') {
+              await SR.api.put('/job-offers/' + id, { status: 'archived' });
+              jobs.forEach(function (j) { if (j.id === id) j.status = 'archived'; });
+              toast('Job offer archived', 'success');
+            } else if (action === 'restore') {
+              await SR.api.put('/job-offers/' + id, { status: 'active' });
+              jobs.forEach(function (j) { if (j.id === id) j.status = 'active'; });
+              toast('Job offer restored', 'success');
+            } else {
+              await SR.api.del('/job-offers/' + id);
+              jobs = jobs.filter(function (j) { return j.id !== id; });
+              toast('Job offer deleted', 'success');
+            }
+          } catch (err) {
+            if (!USE_MOCKS) { SR.helpers.setLoading(btnEl, false); toast(err.message || 'Action failed', 'error'); return; }
+          }
           SR.modal.close();
           render();
-          toast('Job offer archived', 'success');
         });
       });
 
@@ -1171,7 +1443,7 @@
       if (statusSelect) statusSelect.addEventListener('change', render);
 
       Promise.all([
-        SR.load('/job-offers', SR.mock.jobs),
+        SR.load('/recruiter/job-offers', SR.mock.jobs),
         SR.load('/dashboard/stats', SR.mock.dashboard),
       ]).then(function (results) {
         const data = results[0];
@@ -1192,7 +1464,11 @@
       const jobId = Number(document.body.dataset.jobId || 0);
 
       if (mode === 'edit' && jobId) {
-        SR.load('/job-offers/' + jobId, function () { return SR.mock.job(jobId); }).then(function (j) {
+        // Load from the recruiter's own list: the public show endpoint 404s
+        // for archived offers, and editing them must keep working.
+        SR.load('/recruiter/job-offers', function () { return SR.mock.jobs(); }).then(function (list) {
+          const data = Array.isArray(list) ? list : (list && list.data) ? list.data : [];
+          const j = data.find(function (x) { return Number(x.id) === jobId; }) || SR.mock.job(jobId);
           if (!j) return;
           form.title.value = j.title || '';
           form.contract_type.value = j.contract_type || 'CDI';
@@ -1237,25 +1513,29 @@
     },
   };
 
-  /* ---------------- Recruiter: applications pipeline (all / by job) ---------------- */
+  /* ---------------- Recruiter: applications (recent list / per-job pipeline) ---------------- */
   SR.pages.recruiterApplications = {
     init: function () {
+      const jobId = document.body.dataset.jobId === 'null' ? null : Number(document.body.dataset.jobId);
+      if (jobId) { SR.pages.recruiterApplications._kanban(jobId); return; }
+      SR.pages.recruiterApplications._list();
+    },
+
+    /* -------- Per-job Kanban pipeline -------- */
+    _kanban: function (jobId) {
       const board = document.getElementById('kanbanBoard');
       if (!board) return;
-      const jobId = document.body.dataset.jobId === 'null' ? null : Number(document.body.dataset.jobId);
       const searchInput = document.getElementById('appsSearch');
       const totalEl = document.getElementById('appsTotal');
       const title = document.getElementById('appsTitle');
       let apps = [];
+      let appsAreMock = false; // true when data came from the mock store (demo/fake token)
 
       const NEXT_STATUS = { received: 'interview', interview: 'accepted', accepted: null, refused: null };
       const NEXT_LABEL = { received: 'Interview', interview: 'Accept' };
       const VALID = { received: ['interview', 'refused'], interview: ['accepted', 'refused'], accepted: [], refused: [] };
       const COL_DOTS = { received: 'var(--pink)', interview: 'var(--pink-light)', accepted: 'var(--success)', refused: 'var(--danger)' };
 
-      function loadPath() {
-        return jobId ? '/job-offers/' + jobId + '/applications' : '/applications';
-      }
       function mockFn() {
         return SR.mock.applications(jobId);
       }
@@ -1277,8 +1557,8 @@
             (a.status === 'interview' ? '' : '<button class="btn btn-sm btn-ghost-danger kanban-move" data-id="' + a.id + '" data-next="refused">Refuse</button>')
           : '';
         const name = (a.candidate && a.candidate.name) || 'Candidate';
-        const jobTxt = (jobId ? '' : (a.job_offer && a.job_offer.title)
-          ? '<div class="kanban-cand-job">' + escapeHtml(a.job_offer.title) + '</div>' : '');
+        const jobTxt = (a.job_offer && a.job_offer.title)
+          ? '<div class="kanban-cand-job">' + escapeHtml(a.job_offer.title) + '</div>' : '';
         return '<div class="kanban-card" draggable="true" data-id="' + a.id + '" data-status="' + a.status + '">' +
           '<div class="kanban-card-top">' +
           '<div style="display:flex;align-items:center;gap:10px">' + scoreRing(a.matching_score, 'sm') +
@@ -1309,6 +1589,15 @@
       }
 
       function persist(id, status, done) {
+        // Demo/mock mode: the mock ids would collide with real DB rows if we
+        // PUT them — keep the change local (shared override) so the candidate
+        // view reflects it, without touching the real API.
+        if (appsAreMock) {
+          saveMockStatus(id, status);
+          toast('Status updated (demo)', 'success');
+          if (done) done(true);
+          return;
+        }
         SR.api.put('/applications/' + id + '/status', { status: status }).then(function () {
           toast('Status updated', 'success');
           if (done) done(true);
@@ -1358,34 +1647,210 @@
 
       if (searchInput) searchInput.addEventListener('input', debounce(function () { render(); }));
 
-      if (jobId) {
-        SR.load('/job-offers/' + jobId, function () { return SR.mock.job(jobId); }).then(function (j) {
-          if (j && title) title.textContent = 'Pipeline — ' + j.title;
-        });
-      }
+      SR.load('/job-offers/' + jobId, function () { return SR.mock.job(jobId); }).then(function (j) {
+        if (j && title) title.textContent = 'Pipeline — ' + j.title;
+      });
 
-      SR.load(loadPath(), mockFn).then(function (data) {
+      SR.load('/job-offers/' + jobId + '/applications', function () { appsAreMock = true; return mockFn(); }).then(function (data) {
         apps = Array.isArray(data) ? data : (data && data.data) ? data.data : [];
         render();
       }).catch(function () { render(); });
     },
-  };
+
+    /* -------- Recent applications list (across all the recruiter's offers) -------- */
+    _list: function () {
+      const listEl = document.getElementById('recAppsList');
+      if (!listEl) return;
+      const searchInput = document.getElementById('appsSearch');
+      const totalEl = document.getElementById('appsTotal');
+      const tabsEl = document.querySelector('.apps-tabs');
+      const trashCountEl = document.getElementById('trashCount');
+      let apps = [];
+      let appsAreMock = false; // true when data came from the mock store (demo/fake token)
+      let view = 'active';     // 'active' | 'trashed'
+      let trashed = [];
+      let trashedCount = 0;
+
+      function rowBody(a, name, job) {
+        return avatar(name, 'sm') +
+          '<span class="rec-app-copy">' +
+          '<span class="rec-app-name">' + escapeHtml(name) + '</span>' +
+          '<span class="rec-app-job">' + escapeHtml(job.title || '—') + '</span>' +
+          '</span>' +
+          scoreRing(a.matching_score, 'sm') +
+          '<span class="rec-app-status">' + statusPill(a.status) + '</span>';
+      }
+
+      function rowHtml(a) {
+        const name = (a.candidate && a.candidate.name) || 'Candidate';
+        const job = a.job_offer || {};
+        if (view === 'trashed') {
+          return '<div class="rec-app-row is-trashed">' +
+            '<div class="rec-app-main">' +
+            rowBody(a, name, job) +
+            '<span class="rec-app-date mono">Deleted ' + fmtDate(a.deleted_at) + '</span>' +
+            '</div>' +
+            '<button class="btn btn-sm btn-ghost rec-app-restore" data-id="' + a.id + '" data-name="' + escapeHtml(name) + '">Restore</button>' +
+            '</div>';
+        }
+        return '<div class="rec-app-row">' +
+          '<a class="rec-app-main" href="/recruiter/applications/' + a.id + '" aria-label="Open the application of ' + escapeHtml(name) + '">' +
+          rowBody(a, name, job) +
+          '<span class="rec-app-date mono">' + fmtDate(a.created_at) + '</span>' +
+          '</a>' +
+          '<button class="icon-btn rec-app-del" data-id="' + a.id + '" data-name="' + escapeHtml(name) + '" aria-label="Delete application" title="Delete application">' + icon('trash', 16) + '</button>' +
+          '</div>';
+      }
+
+      function render() {
+        const q = (searchInput.value || '').toLowerCase().trim();
+        const source = view === 'trashed' ? trashed : apps;
+        const rows = source.filter(function (a) {
+          if (!q) return true;
+          const hay = ((a.candidate && a.candidate.name) || '') + ' ' +
+            ((a.candidate && a.candidate.email) || '') + ' ' +
+            ((a.job_offer && a.job_offer.title) || '');
+          return hay.toLowerCase().indexOf(q) !== -1;
+        });
+        listEl.innerHTML = rows.length
+          ? rows.map(rowHtml).join('')
+          : '<div class="empty" style="padding:34px 10px">' + (source.length ? 'No application matches your search.' : (view === 'trashed' ? 'No deleted applications.' : 'No applications yet.')) + '</div>';
+        if (totalEl) {
+          totalEl.textContent = q
+            ? rows.length + ' of ' + source.length + ' application' + (source.length === 1 ? '' : 's')
+            : source.length + (view === 'trashed' ? ' deleted' : '') + ' application' + (source.length === 1 ? '' : 's');
+        }
+      }
+
+      function updateTrashBadge() {
+        if (trashCountEl) trashCountEl.textContent = String(trashedCount);
+      }
+
+      function loadActive() {
+        SR.load('/recruiter/applications', function () { appsAreMock = true; return SR.mock.applications(); }).then(function (data) {
+          apps = Array.isArray(data) ? data : (data && data.data) ? data.data : [];
+          render();
+        }).catch(function () { render(); });
+      }
+
+      function loadTrashed() {
+        SR.load('/recruiter/applications/trashed', function () { return []; }).then(function (data) {
+          trashed = Array.isArray(data) ? data : (data && data.data) ? data.data : [];
+          trashedCount = trashed.length;
+          updateTrashBadge();
+          if (view === 'trashed') render();
+        }).catch(function () {
+          trashed = [];
+          trashedCount = 0;
+          updateTrashBadge();
+          if (view === 'trashed') render();
+        });
+      }
+
+      function doRestore(btn) {
+        const a = trashed.find(function (x) { return Number(x.id) === Number(btn.dataset.id); });
+        if (!a) return;
+        const name = (a.candidate && a.candidate.name) || 'this candidate';
+        SR.api.post('/applications/' + a.id + '/restore').then(function () {
+          trashed = trashed.filter(function (x) { return Number(x.id) !== Number(a.id); });
+          trashedCount = Math.max(0, trashedCount - 1);
+          updateTrashBadge();
+          toast('Application of ' + name + ' restored', 'success');
+          if (view === 'trashed') render();
+          loadActive(); // refresh the Active list so the restored app shows up there
+        }).catch(function (err) {
+          toast(err.message || 'Unable to restore the application', 'error');
+        });
+      }
+
+      function doDelete(a, btnEl) {
+        if (appsAreMock) {
+          saveMockDeletedApp(a.id);
+          apps = apps.filter(function (x) { return Number(x.id) !== Number(a.id); });
+          trashedCount += 1;
+          updateTrashBadge();
+          toast('Application deleted (demo)', 'success');
+          SR.modal.close();
+          render();
+          return;
+        }
+        SR.api.del('/applications/' + a.id).then(function () {
+          apps = apps.filter(function (x) { return Number(x.id) !== Number(a.id); });
+          trashedCount += 1;
+          updateTrashBadge();
+          toast('Application deleted', 'success');
+          SR.modal.close();
+          render();
+        }).catch(function (err) {
+          SR.modal.close();
+          toast(err.message || 'Unable to delete the application', 'error');
+        });
+      }
+
+      if (tabsEl) tabsEl.addEventListener('click', function (e) {
+        const btn = e.target.closest('.apps-tab');
+        if (!btn || btn.dataset.view === view) return;
+        view = btn.dataset.view;
+        tabsEl.querySelectorAll('.apps-tab').forEach(function (t) {
+          const active = t === btn;
+          t.classList.toggle('is-active', active);
+          t.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        if (view === 'trashed') loadTrashed();
+        else render();
+      });
+
+      listEl.addEventListener('click', function (e) {
+        const restoreBtn = e.target.closest('.rec-app-restore');
+        if (restoreBtn) { doRestore(restoreBtn); return; }
+        const btn = e.target.closest('.rec-app-del');
+        if (!btn) return;
+        const app = apps.find(function (x) { return Number(x.id) === Number(btn.dataset.id); });
+        if (!app) return;
+        const name = (app.candidate && app.candidate.name) || 'this candidate';
+        SR.modal.open(
+          '<p style="font-size:14px;color:var(--slate);margin:0 0 18px">Delete the application of <strong>' + escapeHtml(name) + '</strong>? It will disappear from your applications and the pipeline, but its history is kept for your dashboard analytics. You can restore it later from the Deleted view.</p>' +
+          '<div style="display:flex;justify-content:flex-end;gap:0.75rem">' +
+          '<button class="btn btn-ghost" onclick="SR.modal.close()">Cancel</button>' +
+          '<button class="btn btn-danger" id="confirmDelete">Delete</button></div>',
+          { title: 'Delete application' }
+        );
+        document.getElementById('confirmDelete').addEventListener('click', function () {
+          doDelete(app, this);
+        });
+      });
+
+      if (searchInput) searchInput.addEventListener('input', debounce(render));
+
+      loadActive();
+      loadTrashed(); // populate the Deleted badge
+    },  };
 
   /* ---------------- Recruiter: application detail ---------------- */
+  /* ---------------- Recruiter: application detail (Round 25 premium) ---------------- */
   SR.pages.recruiterApplicationShow = {
     init: function () {
       const wrap = document.getElementById('appDetail');
       if (!wrap) return;
       const id = Number(document.body.dataset.applicationId);
       const TAGS = ['a_relancer', 'prioritaire', 'reserve', 'entretien_planifie'];
+      const BADGE_META = {
+        cv_complet: { cls: 'badge-cv', label: 'CV complet' },
+        high_match: { cls: 'badge-high', label: 'Score élevé' },
+        interview_passed: { cls: 'badge-iv', label: 'Entretien réussi' },
+      };
       let app = null;
-      let appsOfJob = [];
+      let appIsMock = false; // true when data came from the mock store (demo/fake token)
 
-      SR.load('/applications/' + id, function () { return SR.mock.application(id); }).then(function (a) {
+      wrap.classList.add('detail-page-scope', 'detail-page-type');
+      const h1 = document.getElementById('appName');
+      if (h1) h1.classList.add('detail-page-h1');
+
+      SR.load('/applications/' + id, function () { appIsMock = true; return SR.mock.application(id); }).then(function (a) {
         if (!a) { wrap.innerHTML = '<div class="card card-pad empty"><p>Candidature introuvable.</p></div>'; return; }
         app = a;
         const back = document.getElementById('appBackLink');
-        back.href = '/recruiter/jobs/' + (a.job_offer ? a.job_offer.id : '') + '/applications';
+        back.href = '/recruiter/applications';
         render();
       });
 
@@ -1399,88 +1864,280 @@
         const tags = a.tags || [];
         const badges = (a.candidate && a.candidate.badges) || [];
         const interviews = a.interviews || [];
+        const hasCv = !!a.cv_path;
 
         wrap.innerHTML =
-          '<div class="detail-main" style="display:grid;gap:16px">' +
+          '<div class="detail-col">' +
 
-          '<div class="card card-pad" style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">' +
-          avatar(name, '') +
-          '<div style="flex:1;min-width:200px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
-          '<h2 style="margin:0">' + escapeHtml(name) + '</h2>' + statusPill(a.status) + '</div>' +
-          '<div class="mono" style="color:var(--slate);font-size:12.5px">' + escapeHtml(email) + '</div>' +
-          '<div style="margin-top:6px;font-size:13.5px;color:var(--ink)">Applied to : <a href="/jobs/' + job.id + '" style="color:var(--blue)">' + escapeHtml(job.title || '') + '</a></div>' +
-          badges.map(function (b) { return '<span class="tag tag-green">' + escapeHtml(b.type.replace('_', ' ')) + '</span>'; }).join('') +
+          /* ---- Header card ---- */
+          '<div class="detail-card">' +
+          '<div class="detail-head">' +
+          '<span class="avatar-lg">' + escapeHtml(initials(name)) + '</span>' +
+          '<div class="detail-head-main">' +
+          '<div class="detail-name">' + escapeHtml(name) + '</div>' +
+          '<div class="detail-role">' + escapeHtml(email) + ' — postulé le ' + fmtDate(a.created_at) + '</div>' +
+          '<div class="detail-meta">' + statusPill(a.status) +
+          '<div class="detail-badges">' + badges.map(function (b) {
+            const meta = BADGE_META[b.type] || { cls: 'badge-cv', label: b.type.replace('_', ' ') };
+            return '<span class="badge-chip ' + meta.cls + '">' + escapeHtml(meta.label) + '</span>';
+          }).join('') + '</div></div>' +
+          '<div class="detail-meta"><span class="detail-num" style="font-size:12.5px">Offre :</span> <a href="/jobs/' + job.id + '" style="color:var(--dp-purple);font-weight:600">' + escapeHtml(job.title || '') + '</a></div>' +
           '</div>' +
           '<div style="text-align:center">' + scoreRing(a.matching_score) +
-          '<div style="font-size:12px;color:var(--slate);margin-top:4px">Score IA</div></div>' +
-          '</div>' +
-
-          '<div class="card card-pad"><h3>Compatibilité avec l\'offre</h3>' +
-          '<div style="display:grid;gap:14px;margin-top:10px">' +
-          '<div><div class="app-kw-label">Mots-clés trouvés (' + matched.length + ')</div>' +
-          '<div class="chips">' + (matched.map(function (k) { return '<span class="chip chip-ok">' + escapeHtml(k) + '</span>'; }).join('') || '<span class="mono" style="color:var(--slate)">Aucun</span>') + '</div></div>' +
-          '<div><div class="app-kw-label">Mots-clés manquants (' + missing.length + ')</div>' +
-          '<div class="chips">' + (missing.map(function (k) { return '<span class="chip chip-no">' + escapeHtml(k) + '</span>'; }).join('') || '<span class="mono" style="color:var(--slate)">Aucun — profil complet</span>') + '</div></div>' +
+          '<div class="detail-num" style="font-size:11px;color:var(--dp-slate);margin-top:4px">Score IA</div></div>' +
           '</div></div>' +
 
-          '<div class="card card-pad"><h3>Tags rapides</h3><div class="chips" id="tagBox">' +
+          /* ---- CV card ---- */
+          '<div class="detail-card"><div class="detail-card-head"><h2 class="detail-h2">Curriculum Vitae</h2></div>' +
+          (hasCv
+            ? '<div class="cv-file">' +
+              '<span class="cv-file-icon">' + SR.icon('briefcase', 20) + '</span>' +
+              '<div style="min-width:0"><div class="cv-file-name">' + escapeHtml(cvFileName(a.cv_path)) + '</div>' +
+              '<div class="cv-file-sub">PDF — déposé le ' + fmtDate(a.created_at) + '</div></div>' +
+              '<span class="cv-actions">' +
+              '<button class="btn btn-sm btn-ghost" id="cvView" type="button">' + SR.icon('eye', 15) + ' Voir</button>' +
+              '<button class="btn btn-sm btn-ghost" id="cvDownload" type="button">' + SR.icon('download', 15) + ' Télécharger</button>' +
+              '</span></div>'
+            : '<p class="ai-empty">Aucun CV déposé.</p>') +
+          (a.cover_letter ? '<div class="detail-cover">' + escapeHtml(a.cover_letter) + '</div>' : '') +
+          '</div>' +
+
+          /* ---- AI analysis card ---- */
+          '<div class="detail-card">' +
+          '<div class="detail-card-head"><h2 class="detail-h2">Analyse IA</h2>' +
+          '<button class="btn btn-ai btn-sm" id="btnAnalyze" type="button">' + SR.icon('sparkles', 15) + ' Analyser avec l\'IA</button></div>' +
+          '<div id="aiBody">' + aiBody(a) + '</div>' +
+          '</div>' +
+
+          /* ---- Tags card ---- */
+          '<div class="detail-card"><div class="detail-card-head"><h2 class="detail-h2">Tags rapides</h2></div>' +
+          '<div class="chips" id="tagBox">' +
           TAGS.map(function (t) {
             const on = tags.indexOf(t) !== -1;
-            return '<button type="button" class="tag-chip' + (on ? ' on' : '') + '" data-tag="' + t + '" aria-pressed="' + on + '">' + tagChip(t) + '</button>';
+            return '<button type="button" class="tag-opt' + (on ? ' on' : '') + '" data-tag="' + t + '" aria-pressed="' + on + '">' + tagChip(t) + '</button>';
           }).join('') + '</div></div>' +
 
-          '<div class="card card-pad"><h3>Notes internes</h3>' +
+          /* ---- Notes card ---- */
+          '<div class="detail-card"><div class="detail-card-head"><h2 class="detail-h2">Notes internes</h2></div>' +
           '<textarea class="textarea" id="appNotes" rows="4" placeholder="Observations, points à vérifier…">' + escapeHtml(a.notes || '') + '</textarea>' +
-          '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px">' +
-          '<button class="btn btn-primary" id="saveNotes" type="button">Enregistrer les notes</button></div></div>' +
+          '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;align-items:center">' +
+          '<span class="detail-num" id="notesStatus" style="font-size:12px;color:var(--dp-slate)"></span>' +
+          '<button class="btn btn-primary btn-sm" id="saveNotes" type="button">' + SR.icon('check', 15) + ' Enregistrer</button></div>' +
+          '</div>' +
 
-          '<div class="card card-pad"><h3>Entretiens</h3><div id="interviewsBox">' + renderInterviews(interviews) + '</div>' +
-          '<button class="btn btn-ghost" id="scheduleInterview" type="button" style="margin-top:12px">' + SR.icon('calendar', 15) + ' Planifier un entretien</button></div>' +
+          '</div>' +
 
-          '<div class="card card-pad"><h3>Décision</h3>' + renderStatusActions(a.status) + '</div>' +
+          '<div class="detail-side-col">' +
+
+          /* ---- Interviews card ---- */
+          '<div class="detail-card">' +
+          '<div class="detail-card-head"><h2 class="detail-h2">Entretiens</h2>' +
+          '<button class="btn btn-ghost btn-sm" id="scheduleInterview" type="button">' + SR.icon('calendar', 15) + ' Planifier</button></div>' +
+          '<div id="interviewsBox">' + renderInterviews(interviews) + '</div>' +
+          '</div>' +
+
+          /* ---- Decision card ---- */
+          '<div class="detail-card"><div class="detail-card-head"><h2 class="detail-h2">Décision</h2></div>' +
+          '<div id="decisionBox">' + renderStatusActions(a.status) + '</div>' +
+          '</div>' +
 
           suggestionsCard(a) +
 
           '</div>';
-
         bindDetail();
+      }
+
+      function cvFileName(p) {
+        p = String(p || '');
+        const i = p.lastIndexOf('/');
+        return i >= 0 ? p.slice(i + 1) : p;
+      }
+
+      function aiBody(a) {
+        const matched = a.matched_keywords || [];
+        const missing = a.missing_keywords || [];
+        const hasAnalysis = (a.matching_score != null) || matched.length || missing.length;
+        if (!hasAnalysis) {
+          return '<p class="ai-empty">Aucune analyse disponible. Lancez une analyse IA pour calculer le score de compatibilité avec l\'offre et les mots-clés trouvés / manquants.</p>';
+        }
+        return '<div class="ai-score-line"><span class="ai-score-num">' + Math.round(Number(a.matching_score) || 0) + '</span>' +
+          '<span class="ai-score-max">/ 100</span></div>' +
+          '<div style="margin-top:0.875rem;display:grid;gap:12px">' +
+          '<div><div class="detail-num" style="font-size:12px;color:var(--dp-slate);margin-bottom:6px">Mots-clés trouvés (' + matched.length + ')</div>' +
+          '<div class="chips">' + (matched.map(function (k) { return '<span class="kw-chip ok">' + escapeHtml(k) + '</span>'; }).join('') || '<span class="detail-num" style="color:var(--dp-slate)">Aucun</span>') + '</div></div>' +
+          '<div><div class="detail-num" style="font-size:12px;color:var(--dp-slate);margin-bottom:6px">Mots-clés manquants (' + missing.length + ')</div>' +
+          '<div class="chips">' + (missing.map(function (k) { return '<span class="kw-chip miss">' + escapeHtml(k) + '</span>'; }).join('') || '<span class="detail-num" style="color:var(--dp-slate)">Aucun — profil complet</span>') + '</div></div>' +
+          '</div>';
       }
 
       function renderInterviews(list) {
         if (!list.length) return '<div class="empty" style="padding:16px">Aucun entretien planifié.</div>';
         return '<div style="display:grid;gap:10px">' + list.map(function (iv) {
-          const avg = [iv.score_technique, iv.score_communication, iv.score_motivation].filter(function (s) { return s != null; });
-          const avgTxt = avg.length ? ' — Moyenne : ' + (avg.reduce(function (s, x) { return s + x; }, 0) / avg.length).toFixed(1) + '/5' : '';
-          return '<div style="display:flex;align-items:center;gap:10px;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:10px 12px">' +
-            '<div><span class="pill">' + escapeHtml(STATUS_LABELS[iv.status] || iv.status) + '</span> <span class="mono" style="font-size:13px">' + fmtDateTime(iv.scheduled_at) + '</span>' + avgTxt + '</div>' +
+          const scores = [iv.score_technique, iv.score_communication, iv.score_motivation].filter(function (s) { return s != null; });
+          const avgTxt = scores.length ? '<span class="detail-num" style="font-size:12px;color:var(--dp-slate)">moy. ' + (scores.reduce(function (s, x) { return s + x; }, 0) / scores.length).toFixed(1) + '/5</span>' : '';
+          return '<div class="interview-row">' +
+            '<div class="iv-head">' +
+            '<span class="pill ' + (STATUS_PILL_CLASS[iv.status] || '') + '">' + escapeHtml(STATUS_LABELS[iv.status] || iv.status) + '</span>' +
+            '<span class="iv-date"><span class="detail-num">' + fmtDateTime(iv.scheduled_at) + '</span></span>' +
+            (iv.link ? '<a href="' + escapeHtml(iv.link) + '" target="_blank" rel="noopener" style="color:var(--dp-purple)" title="Rejoindre">' + SR.icon('video', 15) + '</a>' : '') +
             (iv.status === 'scheduled'
-              ? '<span><button class="btn btn-sm btn-ghost" data-iv="complete" data-id="' + iv.id + '">Noter</button> <button class="btn btn-sm btn-ghost-danger" data-iv="cancel" data-id="' + iv.id + '">Annuler</button></span>'
-              : '') + '</div>';
+              ? '<span class="iv-actions">' +
+                '<button class="btn btn-sm btn-ghost" data-iv="complete" data-id="' + iv.id + '" type="button">Noter</button>' +
+                '<button class="btn btn-sm btn-ghost-danger" data-iv="cancel" data-id="' + iv.id + '" type="button">Annuler</button>' +
+                '</span>'
+              : '') +
+            '</div>' +
+            (iv.status === 'completed' ? '<div class="iv-scores">' +
+              '<span class="iv-score">Technique <b>' + (iv.score_technique ?? '—') + '</b></span>' +
+              '<span class="iv-score">Communication <b>' + (iv.score_communication ?? '—') + '</b></span>' +
+              '<span class="iv-score">Motivation <b>' + (iv.score_motivation ?? '—') + '</b></span>' +
+              avgTxt + '</div>' : '') +
+            '</div>';
         }).join('') + '</div>';
       }
 
       function renderStatusActions(status) {
         if (status === 'accepted' || status === 'refused') {
-          return '<p class="mono" style="color:var(--slate);margin:0">Statut terminal — aucune action possible.</p>';
+          return '<p class="detail-num" style="color:var(--dp-slate);margin:0">Statut terminal — aucune action possible.</p>';
         }
-        const next = status === 'received' ? [['interview', '→ Entretien'], ['refused', 'Refuser']] : [['accepted', '→ Accepter'], ['refused', 'Refuser']];
+        const next = status === 'received' ? [['interview', 'Passer en entretien'], ['refused', 'Refuser']] : [['accepted', 'Accepter'], ['refused', 'Refuser']];
         return '<div style="display:flex;gap:10px;flex-wrap:wrap">' + next.map(function (n) {
           const danger = n[0] === 'refused';
-          return '<button class="btn ' + (danger ? 'btn-danger' : 'btn-primary') + '" data-action="status" data-status="' + n[0] + '" type="button">' + n[1] + '</button>';
+          return '<button class="btn ' + (danger ? 'btn-ghost-danger' : 'btn-primary') + '" data-action="status" data-status="' + n[0] + '" type="button">' + n[1] + '</button>';
         }).join('') + '</div>';
       }
 
       function suggestionsCard(a) {
         if (a.status !== 'refused') return '';
-        return '<div class="card card-pad"><h3>Profils similaires suggérés</h3><div id="suggBox">' +
-          '<button class="btn btn-ghost" id="loadSugg" type="button">Afficher les suggestions</button></div></div>';
+        return '<div class="detail-card"><div class="detail-card-head"><h2 class="detail-h2">Profils similaires suggérés</h2></div>' +
+          '<div id="suggBox"><button class="btn btn-ghost btn-sm" id="loadSugg" type="button">' + SR.icon('users', 15) + ' Afficher les suggestions</button></div></div>';
+      }
+
+      function setStatus(next, comment) {
+        const prev = app.status;
+        if (appIsMock) {
+          app.status = next;
+          saveMockStatus(app.id, next);
+          if (comment) app.comments = comment;
+          toast('Statut → ' + (STATUS_LABELS[next] || next) + ' (démo)', 'success');
+          render();
+          return;
+        }
+        SR.api.put('/applications/' + app.id + '/status', { status: next })
+          .then(function () {
+            app.status = next;
+            if (comment) {
+              app.comments = comment;
+              return SR.api.put('/applications/' + app.id + '/notes', { notes: app.notes || '', comments: comment }).catch(function () {});
+            }
+          })
+          .then(function () {
+            render();
+            toast('Statut → ' + (STATUS_LABELS[next] || next), 'success');
+          })
+          .catch(function (err) {
+            app.status = prev;
+            render();
+            toast((err && err.message) || 'Impossible de changer le statut', 'error');
+          });
+      }
+
+      function askConfirm(opts) {
+        SR.modal.open(
+          '<p class="confirm-copy">' + opts.copy + '</p>' +
+          (opts.commentLabel
+            ? '<div class="form-group"><label class="form-label" for="confirmComment">' + opts.commentLabel + '</label>' +
+              '<textarea class="textarea confirm-comment" id="confirmComment" rows="3" placeholder="Optionnel — sera visible par le candidat"></textarea></div>'
+            : '') +
+          '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">' +
+          '<button class="btn btn-ghost" onclick="SR.modal.close()">Annuler</button>' +
+          '<button class="btn ' + (opts.danger ? 'btn-danger' : 'btn-primary') + '" id="confirmGo" type="button">' + opts.confirmLabel + '</button></div>',
+          { title: opts.title }
+        );
+        document.getElementById('confirmGo').addEventListener('click', function () {
+          const comment = opts.commentLabel ? document.getElementById('confirmComment').value.trim() : null;
+          SR.modal.close();
+          opts.onConfirm(comment);
+        });
+      }
+
+      function openCv(mode) {
+        if (!app.cv_path) { toast('Aucun CV déposé', 'info'); return; }
+        if (appIsMock) { toast('CV non disponible en mode démo', 'info'); return; }
+        fetch(API + '/applications/' + app.id + '/cv', {
+          headers: auth.token() ? { 'Authorization': 'Bearer ' + auth.token(), 'Accept': 'application/pdf' } : {},
+        }).then(function (res) {
+          if (!res.ok) throw new Error('Erreur ' + res.status);
+          return res.blob();
+        }).then(function (blob) {
+          const url = URL.createObjectURL(blob);
+          if (mode === 'download') {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = cvFileName(app.cv_path);
+            a.click();
+            URL.revokeObjectURL(url);
+            toast('CV téléchargé', 'success');
+          } else {
+            window.open(url, '_blank');
+          }
+        }).catch(function (err) {
+          toast((err && err.message) || 'Impossible de charger le CV', 'error');
+        });
+      }
+
+      function runAnalyze() {
+        const btn = document.getElementById('btnAnalyze');
+        const aiBodyEl = document.getElementById('aiBody');
+        const setBusy = function (busy) {
+          if (!btn) return;
+          btn.disabled = busy;
+          btn.innerHTML = busy
+            ? '<span class="ai-spin"></span> Analyse en cours…'
+            : SR.icon('sparkles', 15) + ' Analyser avec l\'IA';
+        };
+        setBusy(true);
+        if (aiBodyEl) aiBodyEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--dp-slate);font-size:13.5px"><span class="ai-spin dark"></span> Analyse du CV par l\'IA…</div>';
+        if (appIsMock) {
+          setTimeout(function () {
+            const stack = (app.job_offer && app.job_offer.tech_stack_array) || [];
+            const keep = Math.max(2, Math.floor(stack.length * 0.6));
+            const matched = stack.slice(0, keep);
+            const missing = stack.slice(keep);
+            const score = Math.round(55 + Math.random() * 40);
+            app.matching_score = score;
+            app.matched_keywords = matched;
+            app.missing_keywords = missing;
+            app.analysis = { matching_score: score, matched_keywords: matched, missing_keywords: missing };
+            render();
+            toast('Analyse IA terminée (démo)', 'success');
+          }, 1400);
+          return;
+        }
+        SR.api.post('/applications/' + app.id + '/analyze')
+          .then(function (res) {
+            const data = res && res.data ? res.data : res;
+            if (data && data.analysis) {
+              app.matching_score = data.analysis.matching_score;
+              app.matched_keywords = data.analysis.matched_keywords || [];
+              app.missing_keywords = data.analysis.missing_keywords || [];
+              app.analysis = data.analysis;
+            }
+            render();
+            toast('Analyse IA terminée', 'success');
+          })
+          .catch(function (err) {
+            setBusy(false);
+            if (aiBodyEl) aiBodyEl.innerHTML = '<p class="ai-empty">' + escapeHtml((err && err.message) || 'Échec de l\'analyse IA') + '</p>';
+            toast((err && err.message) || 'Échec de l\'analyse IA', 'error');
+          });
       }
 
       function bindDetail() {
         // Tags
         const tagBox = document.getElementById('tagBox');
         if (tagBox) tagBox.addEventListener('click', function (e) {
-          const btn = e.target.closest('.tag-chip');
+          const btn = e.target.closest('.tag-opt');
           if (!btn) return;
           const t = btn.dataset.tag;
           const tags = app.tags || [];
@@ -1494,68 +2151,136 @@
 
         // Notes
         const saveNotes = document.getElementById('saveNotes');
-        if (saveNotes) saveNotes.addEventListener('click', async function () {
+        if (saveNotes) saveNotes.addEventListener('click', function () {
           const notes = document.getElementById('appNotes').value;
           app.notes = notes;
-          try { await SR.api.put('/applications/' + app.id + '/notes', { notes: notes }); }
-          catch (err) { if (!USE_MOCKS) { toast(err.message, 'error'); return; } }
-          toast('Notes enregistrées', 'success');
+          const st = document.getElementById('notesStatus');
+          SR.api.put('/applications/' + app.id + '/notes', { notes: notes })
+            .then(function () {
+              if (st) st.textContent = 'Enregistré ✓';
+              setTimeout(function () { if (st) st.textContent = ''; }, 2200);
+              toast('Notes enregistrées', 'success');
+            })
+            .catch(function (err) {
+              if (USE_MOCKS) {
+                if (st) st.textContent = 'Enregistré ✓';
+                setTimeout(function () { if (st) st.textContent = ''; }, 2200);
+                toast('Notes enregistrées (démo)', 'success');
+                return;
+              }
+              toast((err && err.message) || 'Impossible d\'enregistrer les notes', 'error');
+            });
         });
 
-        // Status actions
+        // CV
+        const cvView = document.getElementById('cvView');
+        if (cvView) cvView.addEventListener('click', function () { openCv('view'); });
+        const cvDownload = document.getElementById('cvDownload');
+        if (cvDownload) cvDownload.addEventListener('click', function () { openCv('download'); });
+
+        // Analyze
+        const btnAnalyze = document.getElementById('btnAnalyze');
+        if (btnAnalyze) btnAnalyze.addEventListener('click', runAnalyze);
+
+        // Status actions (delegated) — confirm for terminal-ish decisions
         wrap.addEventListener('click', function (e) {
           const btn = e.target.closest('[data-action="status"]');
           if (!btn) return;
           const next = btn.dataset.status;
-          const prev = app.status;
-          SR.api.put('/applications/' + app.id + '/status', { status: next }).catch(function () {});
-          app.status = next;
-          toast('Statut → ' + (STATUS_LABELS[next] || next), 'success');
-          render();
+          if (next === 'interview') {
+            setStatus('interview', null);
+            return;
+          }
+          askConfirm({
+            title: next === 'accepted' ? 'Accepter la candidature' : 'Refuser la candidature',
+            copy: next === 'accepted'
+              ? 'La candidature passera au statut « Acceptée ». Cette action est définitive.'
+              : 'La candidature passera au statut « Refusée ». Cette action est définitive.',
+            confirmLabel: next === 'accepted' ? 'Accepter' : 'Confirmer le refus',
+            danger: next === 'refused',
+            commentLabel: next === 'accepted' ? 'Commentaire visible par le candidat (optionnel)' : 'Motif / commentaire visible par le candidat (optionnel)',
+            onConfirm: function (comment) { setStatus(next, comment); },
+          });
         });
 
         // Interviews: schedule
         const schedBtn = document.getElementById('scheduleInterview');
         if (schedBtn) schedBtn.addEventListener('click', function () {
           SR.modal.open(
-            '<p style="font-size:14px;color:var(--slate);margin:0 0 14px">Planifiez un entretien pour ' + escapeHtml((app.candidate && app.candidate.name) || '') + '.</p>' +
+            '<p class="confirm-copy">Planifiez un entretien pour ' + escapeHtml((app.candidate && app.candidate.name) || '') + '.</p>' +
             '<div class="form-group"><label class="form-label" for="ivDate">Date et heure</label>' +
             '<input class="input" type="datetime-local" id="ivDate" required></div>' +
             '<div class="form-group"><label class="form-label" for="ivLink">Lien vidéo (optionnel)</label>' +
             '<input class="input" type="url" id="ivLink" placeholder="https://meet.google.com/…"></div>' +
             '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">' +
             '<button class="btn btn-ghost" onclick="SR.modal.close()">Annuler</button>' +
-            '<button class="btn btn-primary" id="confirmSched">Planifier</button></div>',
+            '<button class="btn btn-primary" id="confirmSched" type="button">Planifier</button></div>',
             { title: 'Planifier un entretien' }
           );
-          document.getElementById('confirmSched').addEventListener('click', async function () {
+          document.getElementById('confirmSched').addEventListener('click', function () {
             const dt = document.getElementById('ivDate').value;
             if (!dt) { toast('Choisissez une date', 'error'); return; }
             const link = document.getElementById('ivLink').value;
+            const btn = document.getElementById('confirmSched');
+            btn.disabled = true;
+            const temp = { id: Date.now(), scheduled_at: dt, link: link, status: 'scheduled', score_technique: null, score_communication: null, score_motivation: null };
             app.interviews = app.interviews || [];
-            app.interviews.push({ id: Date.now(), scheduled_at: dt, link: link, status: 'scheduled', score_technique: null, score_communication: null, score_motivation: null });
+            app.interviews.push(temp); // optimistic
             SR.modal.close();
             render();
-            toast('Entretien planifié', 'success');
+            if (appIsMock) {
+              saveMockInterview(app.id, temp);
+              toast('Entretien planifié (démo)', 'success');
+              return;
+            }
+            SR.api.post('/applications/' + app.id + '/interviews', { scheduled_at: dt, link: link })
+              .then(function (created) {
+                const real = created && created.data;
+                if (real) app.interviews[app.interviews.length - 1] = real;
+                render();
+                toast('Entretien planifié', 'success');
+              })
+              .catch(function (err) {
+                app.interviews.pop(); // roll back the optimistic row
+                if (USE_MOCKS) { render(); toast('Entretien planifié (démo)', 'success'); return; }
+                render();
+                toast((err && err.message) || 'Impossible de planifier l\'entretien', 'error');
+              });
           });
         });
 
-        // Interviews: complete/cancel (mock)
+        // Interviews: complete/cancel
         const ivBox = document.getElementById('interviewsBox');
         if (ivBox) ivBox.addEventListener('click', function (e) {
           const btn = e.target.closest('[data-iv]');
           if (!btn) return;
-          const id = Number(btn.dataset.id);
-          const iv = (app.interviews || []).find(function (x) { return x.id === id; });
+          const ivId = Number(btn.dataset.id);
+          const iv = (app.interviews || []).find(function (x) { return x.id === ivId; });
           if (!iv) return;
           if (btn.dataset.iv === 'cancel') {
-            iv.status = 'cancelled';
-            render();
-            toast('Entretien annulé', 'info');
+            if (appIsMock) {
+              iv.status = 'cancelled';
+              render();
+              saveMockInterview(app.id, iv);
+              toast('Entretien annulé (démo)', 'info');
+              return;
+            }
+            const prevCancel = iv.status;
+            SR.api.put('/interviews/' + ivId + '/cancel')
+              .then(function () {
+                iv.status = 'cancelled';
+                render();
+                toast('Entretien annulé', 'info');
+              })
+              .catch(function (err) {
+                iv.status = prevCancel; // roll back optimistic change
+                render();
+                toast((err && err.message) || 'Impossible d\'annuler l\'entretien', 'error');
+              });
             return;
           }
           SR.modal.open(
-            '<p style="font-size:14px;color:var(--slate);margin:0 0 14px">Évaluez l\'entretien de 1 à 5.</p>' +
+            '<p class="confirm-copy">Évaluez l\'entretien de 1 à 5.</p>' +
             '<div class="form-group"><label class="form-label" for="ivTech">Technique</label>' +
             '<input class="input" type="number" id="ivTech" min="1" max="5" value="3" required></div>' +
             '<div class="form-group"><label class="form-label" for="ivCom">Communication</label>' +
@@ -1564,17 +2289,50 @@
             '<input class="input" type="number" id="ivMot" min="1" max="5" value="3" required></div>' +
             '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">' +
             '<button class="btn btn-ghost" onclick="SR.modal.close()">Annuler</button>' +
-            '<button class="btn btn-primary" id="confirmScore">Enregistrer</button></div>',
+            '<button class="btn btn-primary" id="confirmScore" type="button">Enregistrer</button></div>',
             { title: 'Compléter l\'entretien' }
           );
           document.getElementById('confirmScore').addEventListener('click', function () {
-            iv.score_technique = Number(document.getElementById('ivTech').value);
-            iv.score_communication = Number(document.getElementById('ivCom').value);
-            iv.score_motivation = Number(document.getElementById('ivMot').value);
-            iv.status = 'completed';
+            const scores = {
+              score_technique: Number(document.getElementById('ivTech').value),
+              score_communication: Number(document.getElementById('ivCom').value),
+              score_motivation: Number(document.getElementById('ivMot').value),
+            };
+            if (appIsMock) {
+              iv.status = 'completed';
+              iv.score_technique = scores.score_technique;
+              iv.score_communication = scores.score_communication;
+              iv.score_motivation = scores.score_motivation;
+              saveMockInterview(app.id, iv);
+              SR.modal.close();
+              render();
+              toast('Évaluation enregistrée (démo)', 'success');
+              return;
+            }
+            const prevScore = {
+              status: iv.status,
+              score_technique: iv.score_technique,
+              score_communication: iv.score_communication,
+              score_motivation: iv.score_motivation,
+            };
             SR.modal.close();
-            render();
-            toast('Évaluation enregistrée', 'success');
+            SR.api.put('/interviews/' + ivId + '/complete', scores)
+              .then(function () {
+                iv.status = 'completed';
+                iv.score_technique = scores.score_technique;
+                iv.score_communication = scores.score_communication;
+                iv.score_motivation = scores.score_motivation;
+                render();
+                toast('Évaluation enregistrée', 'success');
+              })
+              .catch(function (err) {
+                iv.status = prevScore.status; // roll back optimistic change
+                iv.score_technique = prevScore.score_technique;
+                iv.score_communication = prevScore.score_communication;
+                iv.score_motivation = prevScore.score_motivation;
+                render();
+                toast((err && err.message) || 'Impossible d\'enregistrer l\'évaluation', 'error');
+              });
           });
         });
 
@@ -1583,13 +2341,15 @@
         if (loadSugg) loadSugg.addEventListener('click', function () {
           const box = document.getElementById('suggBox');
           const suggs = SR.mock.suggestions(app.id);
-          box.innerHTML = '<div style="display:grid;gap:10px">' + suggs.map(function (s) {
+          box.innerHTML = '<div style="display:grid;gap:2px">' + suggs.map(function (s) {
             const nm = (s.candidate && s.candidate.name) || '';
-            return '<div style="display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px">' +
-              avatar(nm, 'sm') + '<div style="flex:1">' + scoreRing(s.matching_score, 'sm') + '</div>' +
-              '<div style="flex:2"><div style="font-weight:600;color:var(--ink)">' + escapeHtml(nm) + '</div>' +
-              '<div class="mono" style="font-size:12px;color:var(--slate)">' + escapeHtml((s.job_offer && s.job_offer.title) || '') + '</div></div>' +
-              '<a class="btn btn-sm btn-ghost" href="/recruiter/applications/' + s.id + '">View</a></div>';
+            return '<div class="sug-row">' +
+              avatar(nm, 'sm') +
+              '<div style="flex:1;min-width:0"><div class="sug-name">' + escapeHtml(nm) + '</div>' +
+              '<div class="sug-job">' + escapeHtml((s.job_offer && s.job_offer.title) || '') + '</div></div>' +
+              '<div>' + scoreRing(s.matching_score, 'sm') + '</div>' +
+              '<a class="btn btn-sm btn-ghost" href="/recruiter/applications/' + s.id + '">Voir</a>' +
+              '</div>';
           }).join('') + '</div>';
         });
       }
@@ -1860,42 +2620,42 @@
 
       function myApps() {
         const user = auth.user();
-        const all = SR.mock.applications();
-        const mine = all.filter(function (a) { return user && a.candidate && a.candidate.id === user.id; });
-        return mine.length ? mine : all.slice(0, 3);
+        return SR.mock.applications().filter(function (a) { return user && a.candidate && a.candidate.id === user.id; });
       }
 
       function detailModal(a) {
-        const kw = (a.matched_keywords || []).map(function (k) { return '<span class="chip chip-ok">' + escapeHtml(k) + '</span>'; }).join('') +
-          (a.missing_keywords || []).map(function (k) { return '<span class="chip chip-no">' + escapeHtml(k) + '</span>'; }).join('');
-        const iv = (a.interviews && a.interviews.length) ? a.interviews.map(function (i) {
-          return '<div class="kv"><dt>' + (i.status === 'completed' ? 'Entretien terminé' : 'Entretien planifié') + '</dt><dd>' +
-            fmtDateTime(i.scheduled_at) + (i.link ? ' · <a href="' + escapeHtml(i.link) + '" target="_blank" rel="noopener">' + escapeHtml(i.link) + '</a>' : '') + '</dd></div>';
-        }).join('') : '<div class="kv"><dt>Entretien</dt><dd>Aucun entretien programmé</dd></div>';
+        const ivs = (a.interviews && a.interviews.length) ? a.interviews : [];
+        const IV_LABEL = { scheduled: 'Entretien planifié', completed: 'Entretien terminé', cancelled: 'Entretien annulé' };
+        // Date rows in the details (only non-cancelled interviews)
+        const ivRows = ivs.filter(function (i) { return i.status !== 'cancelled'; }).map(function (i) {
+          return '<div class="kv"><dt>' + (IV_LABEL[i.status] || 'Entretien') + '</dt><dd>' + fmtDateTime(i.scheduled_at) + '</dd></div>';
+        }).join('');
+        // Google Meet links at the bottom (scheduled interviews only)
+        const meetBtns = ivs.filter(function (i) { return i.status === 'scheduled' && i.link; }).map(function (i) {
+          return '<a class="btn btn-primary" style="width:100%" href="' + escapeHtml(i.link) + '" target="_blank" rel="noopener">' +
+            icon('video', 16) + ' Rejoindre l\'entretien — Google Meet</a>';
+        }).join('');
         SR.modal.open(
-          '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">' + scoreRing(a.matching_score) +
+          '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">' +
           '<div><div style="font-weight:700;font-size:17px;color:var(--ink)">' + escapeHtml(a.job_offer ? a.job_offer.title : '') + '</div>' +
           statusPill(a.status) + '</div></div>' +
           '<div class="kv"><dt>Postulé le</dt><dd>' + fmtDate(a.created_at) + '</dd></div>' +
-          '<div class="kv" style="margin-top:10px"><dt>Mots-clés trouvés / manquants</dt><dd>' + (kw || '—') + '</dd></div>' +
-          '<div class="kv" style="margin-top:10px"><dt>Votre lettre</dt><dd style="font-weight:400;white-space:pre-line">' + escapeHtml(a.cover_letter) + '</dd></div>' +
-          '<div style="margin-top:10px">' + iv + '</div>',
+          ivRows +
+          (meetBtns ? '<div style="display:grid;gap:10px;margin-top:18px">' + meetBtns + '</div>' : ''),
           { title: 'Ma candidature' }
         );
       }
 
+      let currentList = [];
       function render(list) {
+        currentList = list;
         if (!list.length) { box.innerHTML = '<div class="empty">You haven\'t applied yet.<br><a class="btn btn-primary" style="margin-top:12px" href="/jobs">Browse jobs</a></div>'; return; }
         box.innerHTML =
-          '<table class="table"><thead><tr><th>Offre</th><th>Score</th><th>Mots-clés</th><th>Statut</th><th>Postulé le</th><th></th></tr></thead><tbody>' +
+          '<table class="table"><thead><tr><th>Offre</th><th>Statut</th><th>Postulé le</th><th></th></tr></thead><tbody>' +
           list.map(function (a) {
-            const kw = (a.matched_keywords || []).map(function (k) { return '<span class="chip chip-ok" style="font-size:11px">' + escapeHtml(k) + '</span>'; }).join('') +
-              (a.missing_keywords || []).map(function (k) { return '<span class="chip chip-no" style="font-size:11px">' + escapeHtml(k) + '</span>'; }).join('');
             return '<tr>' +
               '<td><div style="font-weight:600;color:var(--ink)">' + escapeHtml(a.job_offer ? a.job_offer.title : '') + '</div>' +
               '<div class="mono" style="font-size:11.5px;color:var(--slate)">' + escapeHtml((a.job_offer && a.job_offer.contract_type) || '') + '</div></td>' +
-              '<td>' + scoreRing(a.matching_score, 'sm') + '</td>' +
-              '<td>' + (kw || '<span class="mono" style="color:var(--slate)">—</span>') + '</td>' +
               '<td>' + statusPill(a.status) + '</td>' +
               '<td class="mono" style="color:var(--slate)">' + fmtDate(a.created_at) + '</td>' +
               '<td><button class="btn btn-sm btn-ghost" data-detail="' + a.id + '" type="button">Détail</button></td></tr>';
@@ -1905,7 +2665,7 @@
       box.addEventListener('click', function (e) {
         const btn = e.target.closest('[data-detail]');
         if (!btn) return;
-        const a = SR.mock.applications().find(function (x) { return x.id === Number(btn.dataset.detail); });
+        const a = currentList.find(function (x) { return x.id === Number(btn.dataset.detail); });
         if (a) detailModal(a);
       });
 
@@ -1953,6 +2713,9 @@
       }
 
       dz.addEventListener('click', function () { fileInput.click(); });
+      dz.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+      });
       dz.addEventListener('dragover', function (e) { e.preventDefault(); dz.classList.add('dragover'); });
       dz.addEventListener('dragleave', function () { dz.classList.remove('dragover'); });
       dz.addEventListener('drop', function (e) {
@@ -1979,6 +2742,17 @@
         try {
           if (USE_MOCKS) {
             await new Promise(function (r) { setTimeout(r, 700); });
+            try {
+              const fd = new FormData();
+              fd.append('cv', selectedFile);
+              fd.append('cover_letter', coverText);
+              await SR.api.form('/job-offers/' + jobId + '/apply', fd);
+            } catch (err) {
+              // Backend answered with an error (duplicate application, validation…) → surface it.
+              if (err && (err.status || (err.body && err.body.errors))) throw err;
+              // Network/backend unreachable → keep the local mock application.
+            }
+            persistMockApplication(jobId, coverText);
           } else {
             const fd = new FormData();
             fd.append('cv', selectedFile);
@@ -1991,12 +2765,15 @@
           showFormError(form, msg);
           return;
         }
+        const job = SR.mock.job(jobId) || {};
         SR.modal.open(
           '<div style="text-align:center;padding:6px 0 2px">' +
-          '<div class="score-ring-wrap" style="margin:0 auto 14px">' + scoreRing(82) + '</div>' +
+          '<div style="width:64px;height:64px;border-radius:50%;background:rgb(16 185 129 / 0.12);color:#10b981;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">' +
+          '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg></div>' +
           '<h3 style="margin:0 0 6px">Candidature envoyée !</h3>' +
-          '<p style="color:var(--slate);font-size:14px;margin:0 0 18px">Le score de compatibilité est calculé en arrière-plan.<br>Suivez son évolution dans « Mes candidatures ».</p>' +
-          '<button class="btn btn-primary" onclick="window.location.href=\'/my-applications\'">View my applications</button></div>',
+          '<p style="color:var(--slate);font-size:14px;margin:0 0 18px">Votre candidature pour « ' + escapeHtml(job.title || 'cette offre') +
+          ' » a bien été transmise.<br>Le recruteur l\'étudiera et vous informera de la suite.</p>' +
+          '<button class="btn btn-primary" onclick="window.location.href=\'/my-applications\'">Voir mes candidatures</button></div>',
           { title: 'Candidature envoyée' }
         );
         form.reset();
@@ -2017,6 +2794,7 @@
       if (!box) return;
       let interviews = [];
       let filter = 'all';
+      let interviewsAreMock = false; // true when data came from the mock store (demo/fake token)
 
       function avg(iv) {
         const scores = [iv.score_technique, iv.score_communication, iv.score_motivation].filter(function (s) { return s != null; });
@@ -2088,22 +2866,55 @@
               score_communication: Number(document.getElementById('sC').value),
               score_motivation: Number(document.getElementById('sM').value),
             };
-            try { await SR.api.put('/interviews/' + iv.id + '/complete', payload); } catch (err) { if (!USE_MOCKS) { toast(err.message, 'error'); return; } }
-            iv.status = 'completed'; iv.score_technique = payload.score_technique; iv.score_communication = payload.score_communication; iv.score_motivation = payload.score_motivation;
-            SR.modal.close(); render(); toast('Entretien évalué (moyenne ' + avg(iv) + '/5)', 'success');
+            if (interviewsAreMock) {
+              iv.status = 'completed';
+              iv.score_technique = payload.score_technique;
+              iv.score_communication = payload.score_communication;
+              iv.score_motivation = payload.score_motivation;
+              SR.modal.close(); render();
+              toast('Entretien évalué (démo) — moyenne ' + avg(iv) + '/5', 'success');
+              return;
+            }
+            try {
+              await SR.api.put('/interviews/' + iv.id + '/complete', payload);
+            } catch (err) {
+              SR.modal.close();
+              toast((err && err.message) || 'Impossible d\'enregistrer l\'évaluation', 'error');
+              return;
+            }
+            iv.status = 'completed';
+            iv.score_technique = payload.score_technique;
+            iv.score_communication = payload.score_communication;
+            iv.score_motivation = payload.score_motivation;
+            SR.modal.close(); render();
+            toast('Entretien évalué (moyenne ' + avg(iv) + '/5)', 'success');
           });
         }
         if (cancelBtn) {
           const iv = interviews.find(function (x) { return x.id === Number(cancelBtn.dataset.cancel); });
           if (!iv) return;
-          SR.api.put('/interviews/' + iv.id + '/cancel').catch(function () { if (!USE_MOCKS) throw new Error(); });
-          iv.status = 'cancelled';
-          render();
-          toast('Entretien annulé', 'info');
+          if (interviewsAreMock) {
+            iv.status = 'cancelled';
+            render();
+            toast('Entretien annulé (démo)', 'info');
+            return;
+          }
+          const prevCancel = iv.status;
+          SR.api.put('/interviews/' + iv.id + '/cancel')
+            .then(function () {
+              iv.status = 'cancelled';
+              render();
+              toast('Entretien annulé', 'info');
+            })
+            .catch(function (err) {
+              iv.status = prevCancel; // roll back optimistic change
+              render();
+              toast((err && err.message) || 'Impossible d\'annuler l\'entretien', 'error');
+            });
         }
       });
 
-      SR.load('/interviews', SR.mock.interviews).then(function (data) {
+      SR.load('/interviews', function () { interviewsAreMock = true; return SR.mock.interviews(); }).then(function (data) {
         interviews = Array.isArray(data) ? data : [];
         renderFilters();
         render();

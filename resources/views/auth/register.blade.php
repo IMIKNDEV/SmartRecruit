@@ -22,7 +22,7 @@
 
                 <div class="form-group">
                     <label class="form-label" for="name">Full name</label>
-                    <input class="input" type="text" id="name" name="name" placeholder="Ayoub Idbelhaj" autocomplete="name" required autofocus>
+                    <input class="input" type="text" id="name" name="name" placeholder="Enter your full name" autocomplete="name" required autofocus>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="email">Email address</label>

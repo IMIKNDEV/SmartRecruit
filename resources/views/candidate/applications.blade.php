@@ -10,7 +10,7 @@
 <div class="page-head">
     <div>
         <h1>Mes candidatures</h1>
-        <p class="page-sub">Suivez vos candidatures, vos scores de compatibilité et les statuts.</p>
+        <p class="page-sub">Suivez vos candidatures et leurs statuts en temps réel.</p>
     </div>
     <a class="btn btn-primary" href="{{ route('jobs.index') }}"><x-icon name="search" :size="16" /> Explorer les offres</a>
 </div>

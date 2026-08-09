@@ -21,8 +21,11 @@ class ApplicationResource extends JsonResource
             'comments' => $this->when($user?->isRecruiter(), $this->comments),
             'candidate' => new UserResource($this->whenLoaded('candidate')),
             'job_offer' => new JobOfferResource($this->whenLoaded('jobOffer')),
-            'analysis' => ApplicationAnalysisResource::make($this->whenLoaded('analysis')),
+            'interviews' => InterviewResource::collection($this->whenLoaded('interviews')),
+            // Compatibility score + keyword detail are recruiter-only signals.
+            'analysis' => $this->when($user?->isRecruiter(), ApplicationAnalysisResource::make($this->whenLoaded('analysis'))),
             'created_at' => $this->created_at?->toISOString(),
+            'deleted_at' => $this->deleted_at?->toISOString(),
         ];
     }
 }

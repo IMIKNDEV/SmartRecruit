@@ -22,6 +22,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/profile', [AuthController::class, 'updateProfile']);
 
     Route::middleware('role:recruiter')->group(function () {
+        Route::get('/recruiter/job-offers', [JobOfferController::class, 'mine']);
+        Route::get('/recruiter/applications', [ApplicationController::class, 'recent']);
+        Route::get('/recruiter/applications/trashed', [ApplicationController::class, 'trashed']);
         Route::apiResource('job-offers', JobOfferController::class)->except(['index', 'show']);
         Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
         Route::apiResource('saved-filters', SavedFilterController::class);
@@ -32,6 +35,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/reply-templates', [ReplyTemplateController::class, 'index']);
         Route::put('/reply-templates/{key}', [ReplyTemplateController::class, 'update']);
         Route::post('/applications/{id}/generate-questions', [AgentConversationController::class, 'generateQuestions']);
+        Route::post('/applications/{id}/analyze', [ApplicationController::class, 'analyze']);
+        Route::get('/applications/{id}/cv', [ApplicationController::class, 'cv']);
     });
 
     Route::middleware('role:candidate')->group(function () {
@@ -40,6 +45,8 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::get('/applications/{id}', [ApplicationController::class, 'show']);
+    Route::delete('/applications/{id}', [ApplicationController::class, 'destroy']);
+    Route::post('/applications/{id}/restore', [ApplicationController::class, 'restore']);
     Route::put('/applications/{id}/status', [ApplicationController::class, 'updateStatus']);
     Route::put('/applications/status/batch', [ApplicationController::class, 'batchUpdateStatus']);
     Route::put('/applications/{id}/notes', [ApplicationController::class, 'updateNotes']);

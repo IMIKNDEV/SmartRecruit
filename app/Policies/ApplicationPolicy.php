@@ -42,4 +42,23 @@ class ApplicationPolicy
         return $user->isRecruiter()
             && $application->jobOffer->recruiter_id === $user->id;
     }
+
+    public function delete(User $user, Application $application): bool
+    {
+        return $user->isRecruiter()
+            && $application->jobOffer->recruiter_id === $user->id;
+    }
+
+    public function restore(User $user, Application $application): bool
+    {
+        if (! $user->isRecruiter()) {
+            return false;
+        }
+
+        // Look the offer up with trashed so an archived offer still authorizes
+        // restoring its applications.
+        $offer = $application->jobOffer()->withTrashed()->first();
+
+        return $offer && $offer->recruiter_id === $user->id;
+    }
 }
