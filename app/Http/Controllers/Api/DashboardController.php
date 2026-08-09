@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Models\Interview;
 use App\Models\JobOffer;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 
 class DashboardController extends Controller
@@ -19,7 +20,7 @@ class DashboardController extends Controller
      */
     public function stats(): JsonResponse
     {
-        /** @var \App\Models\User $recruiter */
+        /** @var User $recruiter */
         $recruiter = auth()->user();
 
         $jobs = JobOffer::where('recruiter_id', $recruiter->id)
@@ -138,7 +139,7 @@ class DashboardController extends Controller
             $items->push([
                 'type' => $a->status === 'accepted' ? 'acceptance'
                     : ($a->status === 'refused' ? 'refusal' : 'application'),
-                'label' => ($a->candidate?->name ?? 'Candidate') . ' ' . $this->actionLabel($a),
+                'label' => ($a->candidate?->name ?? 'Candidate').' '.$this->actionLabel($a),
                 'at' => $a->created_at?->toISOString(),
             ]);
         }
@@ -147,7 +148,7 @@ class DashboardController extends Controller
             if ($iv->status === 'completed') {
                 $items->push([
                     'type' => 'interview',
-                    'label' => 'Interview completed for ' . ($iv->application?->candidate?->name ?? 'candidate'),
+                    'label' => 'Interview completed for '.($iv->application?->candidate?->name ?? 'candidate'),
                     'at' => $iv->updated_at?->toISOString(),
                 ]);
             }
@@ -163,9 +164,9 @@ class DashboardController extends Controller
     private function actionLabel(Application $a): string
     {
         return match ($a->status) {
-            'accepted' => 'accepted for ' . ($a->jobOffer?->title ?? 'the position'),
-            'refused' => 'refused for ' . ($a->jobOffer?->title ?? 'the position'),
-            default => 'applied to ' . ($a->jobOffer?->title ?? 'a position'),
+            'accepted' => 'accepted for '.($a->jobOffer?->title ?? 'the position'),
+            'refused' => 'refused for '.($a->jobOffer?->title ?? 'the position'),
+            default => 'applied to '.($a->jobOffer?->title ?? 'a position'),
         };
     }
 

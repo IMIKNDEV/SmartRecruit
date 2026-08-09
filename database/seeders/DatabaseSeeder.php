@@ -48,7 +48,7 @@ class DatabaseSeeder extends Seeder
         $offers = [
             [
                 'title' => 'Senior Laravel Developer',
-                'description' => "We are looking for an experienced Laravel developer to lead the back-end of our recruitment platform. You will design REST APIs, optimise queries and mentor two junior developers. Ideal profile: 4+ years of PHP, strong Laravel knowledge, comfortable with MySQL and Redis, and a taste for clean, tested code.",
+                'description' => 'We are looking for an experienced Laravel developer to lead the back-end of our recruitment platform. You will design REST APIs, optimise queries and mentor two junior developers. Ideal profile: 4+ years of PHP, strong Laravel knowledge, comfortable with MySQL and Redis, and a taste for clean, tested code.',
                 'tech_stack' => 'PHP, Laravel, MySQL, Redis, Docker, Git',
                 'contract_type' => 'CDI',
                 'salary' => 32000,
@@ -56,7 +56,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'title' => 'Frontend Developer (Vue.js)',
-                'description' => "Join our product team to build a fast, accessible single-page application with Vue 3 and Tailwind CSS. You will work closely with the design team, contribute to our component library and ensure top-notch performance and accessibility.",
+                'description' => 'Join our product team to build a fast, accessible single-page application with Vue 3 and Tailwind CSS. You will work closely with the design team, contribute to our component library and ensure top-notch performance and accessibility.',
                 'tech_stack' => 'Vue.js, JavaScript, Tailwind CSS, Vite, Git',
                 'contract_type' => 'CDI',
                 'salary' => 26000,
@@ -64,7 +64,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'title' => 'DevOps Engineer Intern',
-                'description' => "Six-month internship to help us automate our infrastructure: CI/CD pipelines with GitHub Actions, Docker images, and monitoring dashboards. A great opportunity to learn cloud-native practices with a supportive team.",
+                'description' => 'Six-month internship to help us automate our infrastructure: CI/CD pipelines with GitHub Actions, Docker images, and monitoring dashboards. A great opportunity to learn cloud-native practices with a supportive team.',
                 'tech_stack' => 'Docker, GitHub Actions, Linux, Bash, AWS',
                 'contract_type' => 'Stage',
                 'salary' => 3500,
@@ -72,7 +72,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'title' => 'Product Designer',
-                'description' => "Design end-to-end experiences for our recruiting products: research, wireframes, high-fidelity UI and design systems. You care about typography, motion and accessibility, and you ship pixel-perfect hand-offs.",
+                'description' => 'Design end-to-end experiences for our recruiting products: research, wireframes, high-fidelity UI and design systems. You care about typography, motion and accessibility, and you ship pixel-perfect hand-offs.',
                 'tech_stack' => 'Figma, Design Systems, UI, UX, Prototyping',
                 'contract_type' => 'Alternance',
                 'salary' => 4500,
@@ -80,7 +80,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'title' => 'Data Analyst (SQL)',
-                'description' => "Turn recruitment data into decisions: build dashboards, analyse funnels and time-to-hire metrics, and write clear reports for the management team. Strong SQL required; Python is a plus.",
+                'description' => 'Turn recruitment data into decisions: build dashboards, analyse funnels and time-to-hire metrics, and write clear reports for the management team. Strong SQL required; Python is a plus.',
                 'tech_stack' => 'SQL, Python, Power BI, Excel, Statistics',
                 'contract_type' => 'CDD',
                 'salary' => 22000,
@@ -88,7 +88,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'title' => 'QA Automation Engineer',
-                'description' => "Define and automate our testing strategy: API tests, E2E suites with Playwright, and CI integration. You will work with developers to keep our release pipeline fast and reliable.",
+                'description' => 'Define and automate our testing strategy: API tests, E2E suites with Playwright, and CI integration. You will work with developers to keep our release pipeline fast and reliable.',
                 'tech_stack' => 'Playwright, PHPUnit, Jest, CI/CD, Git',
                 'contract_type' => 'CDI',
                 'salary' => 24000,
@@ -117,7 +117,7 @@ class DatabaseSeeder extends Seeder
                 $application = Application::updateOrCreate(
                     ['candidate_id' => $candidate->id, 'job_offer_id' => $job->id],
                     [
-                        'cv_path' => 'cvs/' . $candidate->id . '/cv.pdf',
+                        'cv_path' => 'cvs/'.$candidate->id.'/cv.pdf',
                         'cover_letter' => "I am genuinely excited about the {$job->title} position. My background and skills match the requirements, and I would love to bring my energy and expertise to your team. I am available for an interview at your convenience.",
                         'status' => $status,
                         'notes' => rand(0, 1) ? 'Strong communication, quick follow-up.' : null,
