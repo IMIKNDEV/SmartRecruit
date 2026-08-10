@@ -33,9 +33,7 @@ return [
         [
             'match' => [
                 // Match only routes whose paths match this pattern (use * as a wildcard to match any characters). Example: 'users/*'.
-                // TODO(SR-TECH-12): The API controllers don't exist yet, so the api/* routes are disabled.
-                // Restore 'api/*' once the controllers are built, then run `composer docs`.
-                'prefixes' => ['api/__disabled__/*'],
+                'prefixes' => ['api/*'],
 
                 // Match only routes whose domains match this pattern (use * as a wildcard to match any characters). Example: 'api.*'.
                 'domains' => ['*'],

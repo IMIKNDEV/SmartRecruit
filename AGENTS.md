@@ -2055,6 +2055,8 @@ tests/
 │   ├── JobOfferTest.php
 │   ├── ApplicationTest.php
 │   ├── ApplicationBatchTest.php
+│   ├── ApplicationProductivityTest.php   # compare + similar-profile suggestions
+│   ├── ReplyTemplateTest.php
 │   ├── SavedFilterTest.php
 │   ├── ShortlistTest.php
 │   ├── InterviewTest.php
@@ -2718,6 +2720,10 @@ php artisan test
 # Format code
 ./vendor/bin/pint
 
+# API docs (Scribe) — regenerates and serves at /docs
+php artisan scribe:generate
+composer docs
+
 # Docker
 docker-compose up -d
 
@@ -2745,6 +2751,20 @@ php artisan route:clear
 php artisan view:clear
 php artisan cache:clear
 ```
+
+---
+
+## API Documentation (Scribe)
+
+The REST API is documented with **Scribe** (`knuckleswtf/scribe`) and served live at **`/docs`** (plus `/docs.openapi` and `/docs.postman`).
+
+- `config/scribe.php` → `'prefixes' => ['api/*']` so every API route is picked up (was `api/__disabled__/*` until the controllers existed).
+- Generated with `php artisan scribe:generate` (or `composer docs`). Outputs:
+  - Blade view → `resources/views/scribe/index.blade.php` (committed so `/docs` works without regenerating)
+  - Postman collection + OpenAPI spec → `storage/app/private/scribe/` (gitignored)
+  - Cache → `.scribe/` (gitignored)
+- Auth uses `securityDefinitions` with a Bearer Sanctum token — click **Authorize** in the docs UI to hit authenticated endpoints.
+- Controllers carry minimal-to-no Scribe annotations; Scribe captures real request/response shapes from the routes/form requests. If a controller referenced by a route is missing, `scribe:generate` fails loudly — keep `routes/api.php` in sync with `app/Http/Controllers/Api/`.
 
 ---
 

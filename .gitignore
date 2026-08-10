@@ -35,3 +35,6 @@ Thumbs.db
 
 # Local SQLite dev database (created during local browser testing)
 /smartrecruit
+
+# Scribe generated cache (regenerated on every `php artisan scribe:generate`)
+/.scribe
