@@ -6,6 +6,7 @@
 .phpactor.json
 .phpunit.result.cache
 /.opencode
+/docker/.env.container
 /.codex
 /.cursor/
 /.idea
@@ -22,8 +23,10 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/debugbar
 /vendor
 _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+smartrecruit

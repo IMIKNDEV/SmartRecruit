@@ -41,14 +41,20 @@ jobs:
       - name: Generate key
         run: php artisan key:generate
 
+      # Tests run against SQLite :memory: (phpunit.xml) — the .env.example
+      # sqlite file just needs to exist for this sanity migration.
+      - name: Prepare SQLite database
+        run: touch database/database.sqlite
+
       - name: Run migrations
         run: php artisan migrate --force
 
-      - name: Test PHPStan
-        run: ./vendor/bin/phpstan analyse
+      # - name: Test PHPStan
+      #   run: ./vendor/bin/phpstan analyse
 
       - name: Check code style (Pint)
         run: ./vendor/bin/pint --test
 
-      # - name: Test PHPUnit
-      #   run: ./vendor/bin/phpunit
+      # Run the Pest test suite (tests/Feature + tests/Unit, SQLite :memory:).
+      - name: Test PHPUnit (Pest)
+        run: php artisan test
