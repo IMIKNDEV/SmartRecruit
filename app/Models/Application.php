@@ -48,6 +48,11 @@ class Application extends Model
         return $this->hasMany(Interview::class);
     }
 
+    public function latestInterview(): HasOne
+    {
+        return $this->hasOne(Interview::class)->latestOfMany();
+    }
+
     public function analysis(): HasOne
     {
         return $this->hasOne(ApplicationAnalysis::class);

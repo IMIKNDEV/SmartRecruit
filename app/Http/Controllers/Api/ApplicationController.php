@@ -8,13 +8,12 @@ use App\Http\Requests\BatchUpdateStatusRequest;
 use App\Http\Requests\UpdateApplicationNotesRequest;
 use App\Http\Requests\UpdateApplicationStatusRequest;
 use App\Http\Requests\UpdateApplicationTagsRequest;
+use App\Http\Resources\ApplicationAnalysisResource;
 use App\Http\Resources\ApplicationResource;
 use App\Jobs\CalculateMatchingScoreJob;
 use App\Models\Application;
-use App\Models\ApplicationAnalysis;
 use App\Models\JobOffer;
 use App\Services\BadgeService;
-use App\Services\MatchingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -160,36 +159,35 @@ class ApplicationController extends Controller
 
     /**
      * Re-run the AI (Groq) compatibility analysis on demand (recruiter, own
-     * job offer only). Runs synchronously so the recruiter sees the result
-     * immediately; the score + keyword detail are stored for fast reads.
+     * job offer only). The calculation is dispatched to the queue so the
+     * HTTP request returns immediately; the front-end polls
+     * GET /applications/{id}/analysis until the score is stored.
      */
     public function analyze(Request $request, int $id)
     {
-        $application = Application::with(['candidate.badges', 'jobOffer', 'analysis', 'interviews'])->findOrFail($id);
+        $application = Application::findOrFail($id);
 
         $this->authorize('view', $application);
 
-        try {
-            $result = (new MatchingService)->calculateScore($application);
+        CalculateMatchingScoreJob::dispatch($application);
 
-            ApplicationAnalysis::updateOrCreate(
-                ['application_id' => $application->id],
-                [
-                    'job_offer_id' => $application->job_offer_id,
-                    'matching_score' => $result['score'],
-                    'matched_keywords' => $result['matched'],
-                    'missing_keywords' => $result['missing'],
-                ]
-            );
+        return response()->json(['status' => 'processing'], 202);
+    }
 
-            (new BadgeService)->checkAndAward($application->load('analysis'));
+    /**
+     * Lightweight polling endpoint: returns the stored analysis row, or
+     * data: null while the queued CalculateMatchingScoreJob is still
+     * computing (recruiter, own job offer only).
+     */
+    public function analysis(Request $request, int $id)
+    {
+        $application = Application::with('analysis')->findOrFail($id);
 
-            return new ApplicationResource($application->load(['candidate.badges', 'jobOffer', 'analysis', 'interviews']));
-        } catch (\Throwable $e) {
-            return response()->json([
-                'message' => 'L\'analyse IA a échoué : '.$e->getMessage(),
-            ], 500);
-        }
+        $this->authorize('view', $application);
+
+        return response()->json([
+            'data' => $application->analysis ? new ApplicationAnalysisResource($application->analysis) : null,
+        ]);
     }
 
     /**

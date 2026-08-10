@@ -20,6 +20,12 @@ class ApplicationAnalysis extends Model
         'matching_score',
         'matched_keywords',
         'missing_keywords',
+        'strengths',
+        'gaps',
+        'years_experience',
+        'education_level',
+        'languages',
+        'recommendation',
     ];
 
     protected function casts(): array
@@ -28,6 +34,8 @@ class ApplicationAnalysis extends Model
             'matching_score' => 'decimal:2',
             'matched_keywords' => 'array',
             'missing_keywords' => 'array',
+            'years_experience' => 'integer',
+            'languages' => 'array',
         ];
     }
 

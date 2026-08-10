@@ -22,6 +22,12 @@ class ApplicationAnalysisFactory extends Factory
             'matching_score' => fake()->randomFloat(2, 30, 95),
             'matched_keywords' => ['PHP', 'Laravel'],
             'missing_keywords' => ['Docker'],
+            'strengths' => 'Solid PHP and Laravel experience with clean architecture.',
+            'gaps' => 'No Docker experience on production environments.',
+            'years_experience' => fake()->numberBetween(2, 10),
+            'education_level' => fake()->randomElement(['Master', 'Licence', 'Bac+5']),
+            'languages' => ['Français', 'Anglais'],
+            'recommendation' => 'Profile worth interviewing for the Laravel position.',
         ];
     }
 }

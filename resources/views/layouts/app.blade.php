@@ -48,9 +48,6 @@
                     <x-icon name="calendar" :size="17" /> Interviews
                 </a>
                 <div class="px-3 pb-2 pt-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-body">Tools</div>
-                <a class="group mb-1 flex items-center gap-3 rounded-pill px-3 py-2.5 text-sm font-medium transition-colors {{ request()->is('recruiter/agent') ? 'bg-accent/20 font-semibold text-dark' : 'text-body hover:bg-surface hover:text-dark' }}" href="{{ route('recruiter.agent') }}">
-                    <x-icon name="sparkles" :size="17" /> AI Agent
-                </a>
                 <a class="group mb-1 flex items-center gap-3 rounded-pill px-3 py-2.5 text-sm font-medium transition-colors {{ request()->is('recruiter/filters') ? 'bg-accent/20 font-semibold text-dark' : 'text-body hover:bg-surface hover:text-dark' }}" href="{{ route('recruiter.filters') }}">
                     <x-icon name="filter" :size="17" /> Saved filters
                 </a>
@@ -114,6 +111,36 @@
     <div class="modal" id="modalBox"></div>
 </div>
 <div class="toast-container" id="toasts"></div>
+
+{{-- SmartRecruit AI Chat — floating support widget (Facebook-style popup). Recruiters only: the assistant can also read candidate profiles. --}}
+@if ($layoutRole === 'recruiter')
+<div class="sr-chat" id="srChat">
+    <button class="sr-chat-launcher" id="srChatLauncher" type="button" aria-label="Ouvrir SmartRecruit AI Chat" aria-expanded="false">
+        <span class="sr-chat-launcher-ic"><x-icon name="sparkles" :size="20" /></span>
+        <span class="sr-chat-launcher-lbl">AI Chat</span>
+    </button>
+
+    <div class="sr-chat-panel" id="srChatPanel" role="dialog" aria-label="SmartRecruit AI Chat" aria-hidden="true" hidden>
+        <div class="sr-chat-head">
+            <div class="sr-chat-head-avatar"><x-icon name="sparkles" :size="16" /></div>
+            <div class="sr-chat-head-txt">
+                <div class="sr-chat-head-title">SmartRecruit AI Chat</div>
+                <div class="sr-chat-head-sub"><span class="sr-chat-dot"></span> En ligne — assistance &amp; FAQ</div>
+            </div>
+            <button class="sr-chat-close" id="srChatClose" type="button" aria-label="Fermer le chat">
+                <x-icon name="x" :size="18" />
+            </button>
+        </div>
+        <div class="sr-chat-body" id="srChatThread"></div>
+        <form class="sr-chat-form" id="srChatForm">
+            <input class="sr-chat-input" id="srChatInput" type="text" placeholder="Écrivez votre message…" autocomplete="off" aria-label="Votre message">
+            <button class="sr-chat-send" id="srChatSend" type="submit" aria-label="Envoyer">
+                <x-icon name="send" :size="17" />
+            </button>
+        </form>
+    </div>
+</div>
+@endif
 <script>
     window.SR_BOOT = {
         user: null,
