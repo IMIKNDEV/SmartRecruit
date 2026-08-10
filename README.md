@@ -1,25 +1,37 @@
-# SmartRecruit
-
-> Plateforme de recrutement à matching intelligent — pipeline Kanban, scoring CV/offre par IA, tableau de bord analytique et outils de productivité recruteur, portés par une API REST sécurisée.
-
-<p>
-  <img src="https://img.shields.io/badge/PHP-8.3+-777BB4?style=flat&logo=php&logoColor=white" alt="PHP" />
-  <img src="https://img.shields.io/badge/Laravel-13-FF2D20?style=flat&logo=laravel&logoColor=white" alt="Laravel" />
-  <img src="https://img.shields.io/badge/MySQL-8.x-4479A1?style=flat&logo=mysql&logoColor=white" alt="MySQL" />
-  <img src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat&logo=tailwindcss&logoColor=white" alt="Tailwind CSS" />
-  <img src="https://img.shields.io/badge/Vite-8-646CFF?style=flat&logo=vite&logoColor=white" alt="Vite" />
-  <img src="https://img.shields.io/badge/Groq-AI_Matching-F55036?style=flat&logo=groq&logoColor=white" alt="Groq" />
-  <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white" alt="Docker" />
-  <img src="https://img.shields.io/badge/PHPUnit-Pest-4E4E4E?style=flat&logo=php&logoColor=white" alt="PHPUnit / Pest" />
-  <img src="https://img.shields.io/badge/GitHub_Actions-CI/CD-2088FF?style=flat&logo=githubactions&logoColor=white" alt="GitHub Actions" />
+<h1 align="center">
+  <img src="https://github.com/user-attachments/assets/72155d28-35aa-4dba-acd2-37d3688458cf" alt="SmartRecruit Logo" width="400"/>
+</h1>
+<p align="center">
+   Plateforme de recrutement à matching intelligent — pipeline Kanban, scoring CV/offre par IA, tableau de bord analytique et outils de productivité recruteur, portés par une API REST sécurisée.
 </p>
+<div align="center">
+
+![PHP](https://img.shields.io/badge/PHP-8.3-6366F1?style=flat-square&logo=php&logoColor=blue)
+![Laravel](https://img.shields.io/badge/Laravel-13-FF3B30?style=flat-square&logo=laravel&logoColor=red)
+![Blade](https://img.shields.io/badge/Blade-Templates-F97316?style=flat-square&logoColor=red)
+![Sanctum](https://img.shields.io/badge/Sanctum-Auth-A855F7?style=flat-square&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-8.0.46-00A3E0?style=flat-square&logo=mysql&logoColor=white)
+![Laravel AI](https://img.shields.io/badge/Laravel_AI-SDK-EC4899?style=flat-square&logoColor=white)
+![Groq](https://img.shields.io/badge/Groq-Matching-FF4433?style=flat-square&logo=groq&logoColor=white)
+![Tailwind](https://img.shields.io/badge/Tailwind_CSS-4-14E8C8?style=flat-square&logo=tailwindcss&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-9147FF?style=flat-square&logo=vite&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-1D9BF0?style=flat-square&logo=docker&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-CI/CD-0D6EFD?style=flat-square&logo=githubactions&logoColor=white)
+![PHPUnit](https://img.shields.io/badge/PHPUnit-Pest-FF2D78?style=flat-square&logoColor=white)
+
+</div>
 
 ---
 
 ## Démo
 
-<video src="https://github.com/user-attachments/assets/8a7b04b6-a63e-4f1a-bd29-a22b47a087b9" controls width="700"></video>
+<div align="center">
 
+<video src="https://github.com/user-attachments/assets/8a7b04b6-a63e-4f1a-bd29-a22b47a087b9" controls width="800"></video>
+
+</div>
+
+---
 ---
 
 ## Le problème
