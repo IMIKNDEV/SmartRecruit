@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SmartRecruit">
+  <defs>
+    <linearGradient id="srPink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f43f85"/>
+      <stop offset="1" stop-color="#ff7aa8"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#srPink)"/>
+  <!-- White S chain (recruitment pipeline / SmartRecruit) -->
+  <path d="M44 18 H28 a7 7 0 0 0 0 14 H38 a7 7 0 0 1 0 14 H20"
+        fill="none" stroke="#ffffff" stroke-width="8"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- White spark (AI-powered matching) -->
+  <path d="M53 7 L54.4 11.6 L59 13 L54.4 14.4 L53 19 L51.6 14.4 L47 13 L51.6 11.6 Z" fill="#ffffff"/>
+</svg>
