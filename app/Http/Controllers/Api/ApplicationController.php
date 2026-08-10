@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ApplyRequest;
 use App\Http\Requests\BatchUpdateStatusRequest;
+use App\Http\Requests\CompareApplicationsRequest;
 use App\Http\Requests\UpdateApplicationNotesRequest;
 use App\Http\Requests\UpdateApplicationStatusRequest;
 use App\Http\Requests\UpdateApplicationTagsRequest;
@@ -14,6 +15,7 @@ use App\Jobs\CalculateMatchingScoreJob;
 use App\Models\Application;
 use App\Models\JobOffer;
 use App\Services\BadgeService;
+use App\Services\SuggestionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -284,5 +286,48 @@ class ApplicationController extends Controller
         $application->update(['tags' => $request->input('tags', [])]);
 
         return new ApplicationResource($application->load('jobOffer'));
+    }
+
+    /**
+     * Side-by-side comparison of 2-4 applications. Every id must belong to the
+     * same job offer and the recruiter must own that offer.
+     */
+    public function compare(CompareApplicationsRequest $request)
+    {
+        $applications = Application::with(['candidate', 'analysis', 'interviews'])
+            ->whereIn('id', $request->input('ids'))
+            ->get();
+
+        $jobOfferIds = $applications->pluck('job_offer_id')->unique();
+
+        if ($jobOfferIds->count() !== 1) {
+            return response()->json(['message' => 'All applications must belong to the same job offer.'], 422);
+        }
+
+        $jobOffer = JobOffer::findOrFail($jobOfferIds->first());
+
+        if ($jobOffer->recruiter_id !== $request->user()->id) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        return ApplicationResource::collection($applications);
+    }
+
+    /**
+     * Similar-profile suggestions on refusal: candidates whose CV matched the
+     * same skills, ranked by keyword overlap then score, across the recruiter's
+     * other open offers.
+     */
+    public function suggestions(Request $request, int $id)
+    {
+        $application = Application::with(['analysis', 'jobOffer'])->findOrFail($id);
+
+        $this->authorize('view', $application);
+
+        $service = new SuggestionService;
+
+        $suggestions = $service->forApplication($application);
+
+        return ApplicationResource::collection($suggestions);
     }
 }
