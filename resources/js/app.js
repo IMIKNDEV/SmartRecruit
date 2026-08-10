@@ -1960,6 +1960,11 @@
         if (!hasAnalysis) {
           return '<p class="ai-empty">Aucune analyse disponible. Lancez une analyse IA pour calculer le score de compatibilité avec l\'offre et les mots-clés trouvés / manquants.</p>';
         }
+        const an = a.analysis || {};
+        const meta = [];
+        if (an.years_experience != null) meta.push({ k: 'Expérience', v: an.years_experience + ' ans' });
+        if (an.education_level) meta.push({ k: 'Formation', v: an.education_level });
+        if (an.languages && an.languages.length) meta.push({ k: 'Langues', v: an.languages.join(', ') });
         return '<div class="ai-score-line"><span class="ai-score-num">' + Math.round(Number(a.matching_score) || 0) + '</span>' +
           '<span class="ai-score-max">/ 100</span></div>' +
           '<div style="margin-top:0.875rem;display:grid;gap:12px">' +
@@ -1967,7 +1972,17 @@
           '<div class="chips">' + (matched.map(function (k) { return '<span class="kw-chip ok">' + escapeHtml(k) + '</span>'; }).join('') || '<span class="detail-num" style="color:var(--dp-slate)">Aucun</span>') + '</div></div>' +
           '<div><div class="detail-num" style="font-size:12px;color:var(--dp-slate);margin-bottom:6px">Mots-clés manquants (' + missing.length + ')</div>' +
           '<div class="chips">' + (missing.map(function (k) { return '<span class="kw-chip miss">' + escapeHtml(k) + '</span>'; }).join('') || '<span class="detail-num" style="color:var(--dp-slate)">Aucun — profil complet</span>') + '</div></div>' +
+          (an.strengths ? aiBlock('Points forts', an.strengths, 'ok') : '') +
+          (an.gaps ? aiBlock('Points faibles', an.gaps, 'miss') : '') +
+          (meta.length ? '<div class="ai-meta">' + meta.map(function (m) {
+            return '<span class="ai-meta-chip"><b>' + escapeHtml(m.k) + '</b> ' + escapeHtml(m.v) + '</span>';
+          }).join('') + '</div>' : '') +
+          (an.recommendation ? '<div class="ai-reco">' + SR.icon('sparkles', 14) + ' <span>' + escapeHtml(an.recommendation) + '</span></div>' : '') +
           '</div>';
+      }
+
+      function aiBlock(label, text, cls) {
+        return '<div class="ai-block ' + cls + '"><div class="detail-num" style="font-size:12px;color:var(--dp-slate);margin-bottom:4px">' + label + '</div>' + escapeHtml(text) + '</div>';
       }
 
       function renderInterviews(list) {
@@ -2089,12 +2104,36 @@
       function runAnalyze() {
         const btn = document.getElementById('btnAnalyze');
         const aiBodyEl = document.getElementById('aiBody');
+        const prevHtml = aiBodyEl ? aiBodyEl.innerHTML : '';
         const setBusy = function (busy) {
           if (!btn) return;
           btn.disabled = busy;
           btn.innerHTML = busy
             ? '<span class="ai-spin"></span> Analyse en cours…'
             : SR.icon('sparkles', 15) + ' Analyser avec l\'IA';
+        };
+        const restore = function (msg, type) {
+          setBusy(false);
+          if (aiBodyEl) aiBodyEl.innerHTML = prevHtml;
+          if (msg) toast(msg, type || 'error');
+        };
+        const applyResult = function (analysis) {
+          app.matching_score = analysis.matching_score;
+          app.matched_keywords = analysis.matched_keywords || [];
+          app.missing_keywords = analysis.missing_keywords || [];
+          app.analysis = analysis;
+          render();
+          setBusy(false);
+          toast('Analyse IA terminée', 'success');
+        };
+        // Snapshot of the previously stored analysis, so the poll does not
+        // accept the old row before the queued job has overwritten it.
+        const prevAnalysis = app.analysis;
+        const sameAsPrev = function (a) {
+          return !!(prevAnalysis && a
+            && prevAnalysis.matching_score === a.matching_score
+            && prevAnalysis.years_experience === a.years_experience
+            && prevAnalysis.strengths === a.strengths);
         };
         setBusy(true);
         if (aiBodyEl) aiBodyEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--dp-slate);font-size:13.5px"><span class="ai-spin dark"></span> Analyse du CV par l\'IA…</div>';
@@ -2105,31 +2144,57 @@
             const matched = stack.slice(0, keep);
             const missing = stack.slice(keep);
             const score = Math.round(55 + Math.random() * 40);
-            app.matching_score = score;
-            app.matched_keywords = matched;
-            app.missing_keywords = missing;
-            app.analysis = { matching_score: score, matched_keywords: matched, missing_keywords: missing };
-            render();
-            toast('Analyse IA terminée (démo)', 'success');
+            const years = 2 + Math.floor(Math.random() * 7);
+            const education = ['Bac+3', 'Licence', 'Master'][years % 3];
+            applyResult({
+              matching_score: score,
+              matched_keywords: matched,
+              missing_keywords: missing,
+              strengths: 'Profil solide sur ' + (matched.slice(0, 3).join(', ') || 'les bases du poste') + ' (démo).',
+              gaps: missing.length
+                ? 'Pas d\'expérience démontrée sur ' + missing.join(', ') + ' (démo).'
+                : 'Profil complet par rapport à la stack demandée (démo).',
+              years_experience: years,
+              education_level: education,
+              languages: ['Français', 'Anglais'],
+              recommendation: score > 75
+                ? 'À convoquer rapidement en entretien (démo).'
+                : 'Profil à suivre, potentiel à confirmer en entretien (démo).'
+            });
           }, 1400);
           return;
         }
+        // Real flow: dispatch the queued job (202) then poll the stored result.
         SR.api.post('/applications/' + app.id + '/analyze')
           .then(function (res) {
             const data = res && res.data ? res.data : res;
-            if (data && data.analysis) {
-              app.matching_score = data.analysis.matching_score;
-              app.matched_keywords = data.analysis.matched_keywords || [];
-              app.missing_keywords = data.analysis.missing_keywords || [];
-              app.analysis = data.analysis;
-            }
-            render();
-            toast('Analyse IA terminée', 'success');
+            if (data && data.status === 'processing') toast('Analyse IA lancée — le score arrive dans quelques secondes…', 'info');
+            let attempts = 0;
+            const poll = function () {
+              attempts += 1;
+              SR.api.get('/applications/' + app.id + '/analysis')
+                .then(function (res2) {
+                  // The endpoint returns {data: {analysis} | null}.
+                  const body = res2 && typeof res2.data !== 'undefined' ? res2.data : res2;
+                  if (body && body.matching_score !== null && body.matching_score !== undefined && !sameAsPrev(body)) {
+                    applyResult(body);
+                    return;
+                  }
+                  if (attempts >= 45) {
+                    restore(null, 'error');
+                    toast('Le score n\'a pas pu être calculé. Vérifiez que le worker de files d\'attente tourne (php artisan queue:work).', 'error');
+                    return;
+                  }
+                  setTimeout(poll, 2000);
+                })
+                .catch(function (err) {
+                  restore((err && err.message) || 'Échec de la récupération du score IA', 'error');
+                });
+            };
+            setTimeout(poll, 1200);
           })
           .catch(function (err) {
-            setBusy(false);
-            if (aiBodyEl) aiBodyEl.innerHTML = '<p class="ai-empty">' + escapeHtml((err && err.message) || 'Échec de l\'analyse IA') + '</p>';
-            toast((err && err.message) || 'Échec de l\'analyse IA', 'error');
+            restore((err && err.message) || 'Échec de l\'analyse IA', 'error');
           });
       }
 
@@ -3027,6 +3092,229 @@
     },
   };
 
+  /* ---------------- SmartRecruit AI Chat (floating widget) ----------------
+     Facebook-style popup in the bottom-right corner, present on every app page.
+     Uses the real /agent-conversations API (general context, persisted per user)
+     when a token exists and USE_MOCKS is off; otherwise falls back to canned
+     FAQ-style replies so the widget stays demoable offline. */
+  const CHAT_GREETING =
+    'Bonjour 👋 Je suis l\'assistant SmartRecruit. Posez-moi une question sur la plateforme ' +
+    '(score IA, candidatures, pipeline, entretiens, tableau de bord, outils recruteur…) ' +
+    'ou choisissez un sujet ci-dessous.';
+  const CHAT_CHIPS = [
+    'Comment fonctionne le score IA ?',
+    'Comment planifier un entretien ?',
+    'Comment déplacer une candidature dans le pipeline ?',
+    'Que montre le tableau de bord ?',
+    'Comment comparer des candidats ?',
+    'Comment exporter une shortlist ?',
+  ];
+
+  SR.chat = {
+    KEY: 'sr_chat_conv',
+    MOCK_KEY: 'sr_chat_mock_msgs',
+    convId: null,
+    msgs: [],
+    busy: false,
+    typing: false,
+    loading: false,
+
+    init: function () {
+      const launcher = document.getElementById('srChatLauncher');
+      const panel = document.getElementById('srChatPanel');
+      const closeBtn = document.getElementById('srChatClose');
+      const form = document.getElementById('srChatForm');
+      if (!launcher || !panel || !closeBtn || !form) return;
+
+      const self = SR.chat;
+
+      function setOpen(open) {
+        panel.hidden = !open;
+        panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+        launcher.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) self.open();
+      }
+
+      launcher.addEventListener('click', function () { setOpen(panel.hidden); });
+      closeBtn.addEventListener('click', function () { setOpen(false); });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !panel.hidden) setOpen(false);
+      });
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const input = document.getElementById('srChatInput');
+        const text = input.value.trim();
+        if (!text || self.busy) return;
+        input.value = '';
+        self.send(text);
+      });
+
+      const chipsBox = document.getElementById('srChatThread');
+      if (chipsBox) {
+        chipsBox.addEventListener('click', function (e) {
+          const chip = e.target.closest('.sr-chat-chip');
+          if (chip && chip.dataset.q) self.send(chip.dataset.q);
+        });
+      }
+    },
+
+    open: function () {
+      const self = SR.chat;
+      self.ensureThread();
+    },
+
+    ensureThread: function () {
+      const self = SR.chat;
+      if (self.msgs.length || self.loading) return;
+      self.loading = true;
+      self.render();
+
+      // Real API first (Sanctum accepts the web session cookie), mock only as fallback.
+      if (!USE_MOCKS && !auth.token()) { self.loading = false; return; }
+
+      const saved = localStorage.getItem(self.KEY);
+      const first = saved ? Promise.resolve(Number(saved))
+        : SR.api.get('/agent-conversations')
+          .then(function (res) {
+            const list = (res && res.data) ? res.data : (Array.isArray(res) ? res : []);
+            const gen = (list || []).find(function (c) { return c.context_type === 'general'; });
+            if (gen) return gen.id;
+            return SR.api.post('/agent-conversations', { context_type: 'general' })
+              .then(function (r) { return (r && r.data) ? r.data.id : null; });
+          });
+
+      first
+        .then(function (id) {
+          if (!id) throw new Error('no-conv');
+          self.convId = id;
+          localStorage.setItem(self.KEY, String(id));
+          return SR.api.get('/agent-conversations/' + id + '/messages');
+        })
+        .then(function (res) {
+          const list = (res && res.data) ? res.data : (Array.isArray(res) ? res : []);
+          self.msgs = (list || []).filter(function (m) {
+            return m && (m.role === 'user' || m.role === 'assistant');
+          });
+        })
+        .catch(function () {
+          // Offline / session-less: keep a local mock thread.
+          self.convId = null;
+          try { localStorage.removeItem(self.KEY); } catch (e) {}
+          self.msgs = self.loadMock();
+        })
+        .finally(function () { self.loading = false; self.render(); });
+    },
+
+    send: function (text) {
+      const self = SR.chat;
+      if (self.busy) return;
+      self.busy = true;
+      self.msgs.push({ id: Date.now(), role: 'user', content: text });
+      self.typing = true;
+      self.render();
+
+      const done = function (reply) {
+        self.typing = false;
+        if (reply) self.msgs.push({ id: Date.now() + 1, role: 'assistant', content: reply });
+        self.busy = false;
+        self.persistMock();
+        self.render();
+      };
+
+      if (!self.convId) {
+        setTimeout(function () { done(self.mockReply(text)); }, 900);
+        return;
+      }
+
+      SR.api.post('/agent-conversations/' + self.convId + '/messages', { content: text })
+        .then(function (res) { done((res && res.data && res.data.content) || ''); })
+        .catch(function (err) {
+          toast((err && err.message) || 'Erreur', 'error');
+          done(null);
+        });
+    },
+
+    render: function () {
+      const thread = document.getElementById('srChatThread');
+      if (!thread) return;
+      const self = SR.chat;
+      let html = '';
+
+      if (!self.msgs.length) {
+        html += chatBubble('assistant', CHAT_GREETING);
+        html += '<div class="sr-chat-chips" id="srChatChips">' +
+          CHAT_CHIPS.map(function (q) {
+            return '<button type="button" class="sr-chat-chip" data-q="' + escapeHtml(q) + '">' + escapeHtml(q) + '</button>';
+          }).join('') + '</div>';
+      } else {
+        self.msgs.forEach(function (m) {
+          if (!m || !m.role || !m.content) return;
+          html += chatBubble(m.role, m.content);
+        });
+        if (self.typing) {
+          html += '<div class="sr-chat-row sr-chat-row-assistant"><span class="sr-chat-avatar">IA</span>' +
+            '<div class="sr-chat-bubble sr-chat-bubble-assistant sr-chat-typing"><span></span><span></span><span></span></div></div>';
+        }
+      }
+
+      thread.innerHTML = html;
+      thread.scrollTop = thread.scrollHeight;
+    },
+
+    persistMock: function () {
+      try { localStorage.setItem(this.MOCK_KEY, JSON.stringify(this.msgs)); } catch (e) { /* full */ }
+    },
+
+    loadMock: function () {
+      try {
+        const saved = JSON.parse(localStorage.getItem(this.MOCK_KEY) || '[]');
+        return Array.isArray(saved) ? saved : [];
+      } catch (e) { return []; }
+    },
+
+    mockReply: function (text) {
+      const t = text.toLowerCase();
+      if (t.includes('score') || t.includes('match') || t.includes('analyse')) {
+        return 'Le score IA (0 à 100) mesure la compatibilité entre le CV et la stack technique de l\'offre. Il est calculé à l\'upload, stocké avec les mots-clés trouvés et manquants, et vous pouvez le recalculer avec le bouton "Analyser avec l\'IA" sur la page de la candidature. Un score > 80 déclenche le badge "high_match" sur la carte candidat.';
+      }
+      if (t.includes('entretien')) {
+        return 'Depuis une candidature au statut "interview", cliquez sur "Planifier un entretien" : date/heure + lien (Meet, Zoom…). Après l\'entretien, complétez-le avec 3 notes de 1 à 5 (technique, communication, motivation) ; une moyenne > 3 déclenche le badge "interview_passed".';
+      }
+      if (t.includes('pipeline') || t.includes('statut') || t.includes('kanban') || t.includes('déplacer')) {
+        return 'Le pipeline suit les statuts : received → interview → accepted/refused. Les statuts accepted et refused sont terminaux (aucun retour en arrière). Déplacez les candidatures une par une ou en lot (sélection multiple + action groupée) depuis le Kanban.';
+      }
+      if (t.includes('tableau') || t.includes('dashboard') || t.includes('kpi')) {
+        return 'Le tableau de bord recruteur affiche : l\'entonnoir par offre (received/interview/accepted/refused + taux de conversion), le time-to-hire moyen, la répartition des scores IA, l\'activité récente, la comparaison entre offres et les tâches en attente (entretiens à évaluer, candidatures sans suivi depuis 7 jours).';
+      }
+      if (t.includes('compar')) {
+        return 'Sur la page Applications d\'une offre, sélectionnez 2 à 4 candidatures puis cliquez sur "Comparer" : vous verrez côte à côte le score IA, les mots-clés trouvés/manquants et les notes d\'entretien.';
+      }
+      if (t.includes('shortlist') || t.includes('export')) {
+        return 'La shortlist affiche le top 5 des candidatures triées par score IA décroissant. Vous pouvez l\'exporter en CSV ou PDF pour la partager avec un responsable de recrutement.';
+      }
+      if (t.includes('filtr')) {
+        return 'Les filtres enregistrés permettent de sauvegarder une combinaison de critères (score min, stack, type de contrat, statut) et de la réappliquer en un clic depuis la page Saved filters.';
+      }
+      if (t.includes('modèle') || t.includes('template') || t.includes('réponse')) {
+        return 'Les modèles de réponse sont des courriels réutilisables (relance, refus standard) personnalisables dans la page Reply templates. Ils sont proposés lors des changements de statut.';
+      }
+      if (t.includes('badge')) {
+        return 'Les badges sont des signaux visibles uniquement côté recruteur sur la carte candidat : cv_complet (CV uploadé), high_match (score > 80) et interview_passed (entretien avec moyenne > 3).';
+      }
+      return 'Bonne question ! Parlez-moi d\'un sujet de la plateforme — score IA, pipeline de candidatures, entretiens, tableau de bord, comparaison de candidats, shortlist, filtres enregistrés, modèles de réponse ou badges — et je vous guiderai.';
+    },
+  };
+
+  function chatBubble(role, content) {
+    const text = escapeHtml(content).replace(/\n/g, '<br>');
+    if (role === 'assistant') {
+      return '<div class="sr-chat-row sr-chat-row-assistant"><span class="sr-chat-avatar">IA</span>' +
+        '<div class="sr-chat-bubble sr-chat-bubble-assistant">' + text + '</div></div>';
+    }
+    return '<div class="sr-chat-row sr-chat-row-user"><div class="sr-chat-bubble sr-chat-bubble-user">' + text + '</div></div>';
+  }
+
   /* ---------------- Reveal-on-scroll (global, all pages) ----------------
      Adds .in-view to [data-reveal] elements. Safe by design:
      - CSS only hides [data-reveal] under html.js, so no-JS stays visible
@@ -3062,5 +3350,6 @@
     bindSidebarUser();
     bindReveals();
     dispatch();
+    SR.chat.init();
   });
 })();

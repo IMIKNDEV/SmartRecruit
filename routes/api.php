@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/reply-templates/{key}', [ReplyTemplateController::class, 'update']);
         Route::post('/applications/{id}/generate-questions', [AgentConversationController::class, 'generateQuestions']);
         Route::post('/applications/{id}/analyze', [ApplicationController::class, 'analyze']);
+        Route::get('/applications/{id}/analysis', [ApplicationController::class, 'analysis']);
         Route::get('/applications/{id}/cv', [ApplicationController::class, 'cv']);
     });
 
